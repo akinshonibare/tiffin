@@ -9,6 +9,8 @@ import { currentMonthPeriod, monthPeriodFromKey } from "@/lib/budget";
 import { TransactionRow } from "@/components/TransactionRow";
 import { AddTransactionSheet } from "@/components/AddTransactionSheet";
 import { TiffinWordmark } from "@/components/TiffinWordmark";
+import { buildRecap, getCurrentRecapKey } from "@/lib/recap";
+import { Sparkles, ChevronRight } from "lucide-react";
 import type { Transaction } from "@/lib/types";
 
 export default function HomePage() {
@@ -42,6 +44,20 @@ export default function HomePage() {
   );
   const budgets = useLiveQuery(() => getDB().budgets.toArray(), []);
   const categories = useLiveQuery(() => getDB().categories.toArray(), []);
+  const allTxs = useLiveQuery(() => getDB().transactions.toArray(), []);
+  const accounts = useLiveQuery(() => getDB().accounts.toArray(), []);
+
+  const recapAvailable = useMemo(() => {
+    if (!allTxs || !categories || !accounts) return null;
+    const key = getCurrentRecapKey();
+    const puzzle = buildRecap(key, allTxs, categories, accounts);
+    if (!puzzle) return null;
+    let completed = false;
+    try {
+      completed = !!localStorage.getItem(`tiffin.recap.${key}`);
+    } catch {}
+    return { puzzle, completed };
+  }, [allTxs, categories, accounts]);
 
   const total = (txs ?? []).reduce((a, t) => a + t.amount, 0);
   const prevTotal = (prevTxs ?? []).reduce((a, t) => a + t.amount, 0);
@@ -135,6 +151,37 @@ export default function HomePage() {
           )}
         </div>
       </section>
+
+      {recapAvailable && (
+        <section className="mt-4 px-5">
+          <Link
+            href="/play/recap"
+            className="group flex items-center gap-3 overflow-hidden rounded-[22px] bg-[var(--color-ink)] p-4 text-[var(--color-bg)]"
+          >
+            <div className="flex flex-col gap-0.5">
+              <span className="h-2.5 w-2.5 rounded-sm bg-[#f5c542]" />
+              <span className="h-2.5 w-2.5 rounded-sm bg-[#62b265]" />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <span className="h-2.5 w-2.5 rounded-sm bg-[#5990d0]" />
+              <span className="h-2.5 w-2.5 rounded-sm bg-[#a26db3]" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider opacity-70">
+                <Sparkles className="size-3" />
+                {recapAvailable.completed ? "Replay" : "New puzzle"}
+              </div>
+              <div className="font-display text-lg leading-tight">
+                {recapAvailable.puzzle.monthLabel} Recap
+              </div>
+              <div className="text-xs opacity-70">
+                Group last month's expenses by week
+              </div>
+            </div>
+            <ChevronRight className="size-5 opacity-70 transition-transform group-hover:translate-x-0.5" />
+          </Link>
+        </section>
+      )}
 
       {byCat.length > 0 && (
         <section className="mt-6 px-5">

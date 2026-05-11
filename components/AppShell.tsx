@@ -25,7 +25,7 @@ const TABS = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [addOpen, setAddOpen] = useState(false);
-  const immersive = pathname === "/play";
+  const immersive = pathname.startsWith("/play");
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-xl flex-col">
