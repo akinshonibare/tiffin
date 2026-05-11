@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, Shuffle, Share2, RotateCcw, Sparkles } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { getDB } from "@/lib/db";
@@ -73,6 +73,14 @@ function loadState(puzzle: RecapPuzzle, storageKey: string): SavedState {
 }
 
 export default function RecapPage() {
+  return (
+    <Suspense fallback={<PageHeader title="Recap" />}>
+      <RecapInner />
+    </Suspense>
+  );
+}
+
+function RecapInner() {
   const search = useSearchParams();
   const isDemo = search.get("demo") === "1";
 
