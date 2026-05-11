@@ -370,22 +370,24 @@ function RecapGame({
                 onClick={() => toggle(id)}
                 animate={{ scale: isSel ? 0.96 : 1 }}
                 transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                title={`${item.merchant ?? item.categoryName} · ${money(item.amount)}`}
                 className={cn(
-                  "flex aspect-square flex-col items-center justify-center rounded-md px-1 py-1.5 text-center leading-tight transition-colors",
+                  "flex aspect-square w-full min-w-0 flex-col items-center justify-center gap-0.5 overflow-hidden rounded-md px-1 py-1.5 text-center leading-none transition-colors",
                   isSel
                     ? "bg-[var(--color-ink)] text-[var(--color-bg)]"
                     : "bg-[var(--color-surface-2)] text-[var(--color-ink)]",
                 )}
               >
-                <div className="text-base">{item.categoryIcon}</div>
-                <div className="font-display text-sm tabular leading-none">
-                  {money(item.amount, { whole: item.amount >= 100 })}
-                </div>
+                <div className="text-sm">{item.categoryIcon}</div>
                 <div
                   className={cn(
-                    "mt-0.5 line-clamp-1 text-[9px] opacity-80",
+                    "font-display tabular leading-none",
+                    amountFontClass(item.amount),
                   )}
                 >
+                  {compactMoney(item.amount)}
+                </div>
+                <div className="w-full truncate text-[9px] opacity-80">
                   {item.merchant ?? item.categoryName}
                 </div>
               </motion.button>
@@ -470,6 +472,21 @@ function RecapGame({
   );
 }
 
+function amountFontClass(amount: number): string {
+  const s = compactMoney(amount);
+  if (s.length <= 5) return "text-sm";
+  if (s.length <= 7) return "text-xs";
+  return "text-[10px]";
+}
+
+function compactMoney(amount: number): string {
+  if (amount >= 10000) {
+    return `$${Math.round(amount / 1000)}k`;
+  }
+  if (amount >= 100) return money(amount, { whole: true });
+  return money(amount);
+}
+
 function SolvedBar({ group }: { group: WeekGroup }) {
   return (
     <motion.div
@@ -482,10 +499,10 @@ function SolvedBar({ group }: { group: WeekGroup }) {
       <div className="text-[10px] uppercase tracking-widest opacity-90">
         {group.label} · {group.range}
       </div>
-      <div className="mt-0.5 flex flex-wrap items-center justify-center gap-x-2 text-[11px] font-medium">
+      <div className="mt-0.5 flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5 text-[11px] font-medium">
         {group.items.map((it) => (
-          <span key={it.id} className="tabular">
-            {it.categoryIcon} {money(it.amount, { whole: it.amount >= 100 })}
+          <span key={it.id} className="tabular whitespace-nowrap">
+            {it.categoryIcon} {compactMoney(it.amount)}
           </span>
         ))}
       </div>
