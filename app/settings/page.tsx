@@ -62,12 +62,7 @@ export default function SettingsPage() {
     const db = getDB();
     await db.transaction(
       "rw",
-      db.accounts,
-      db.cards,
-      db.categories,
-      db.budgets,
-      db.transactions,
-      db.settings,
+      [db.accounts, db.cards, db.categories, db.budgets, db.transactions, db.settings],
       async () => {
         if (data.accounts) {
           await db.accounts.clear();
