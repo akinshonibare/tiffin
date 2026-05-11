@@ -1,26 +1,93 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-bg: #fafaf7;
+  --color-surface: #ffffff;
+  --color-surface-2: #f4f3ee;
+  --color-ink: #0a0a0a;
+  --color-ink-2: #404040;
+  --color-ink-3: #737373;
+  --color-line: #e7e5e0;
+  --color-accent: #00a86b;
+  --color-accent-soft: #d9f3e8;
+  --color-warn: #d97706;
+  --color-danger: #dc2626;
+
+  --font-sans:
+    var(--font-geist), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: var(--font-fraunces), "Tiempos Headline", Georgia,
+    "Times New Roman", serif;
+
+  --radius-xl: 22px;
+  --radius-2xl: 28px;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+    --color-bg: #0a0a0a;
+    --color-surface: #141414;
+    --color-surface-2: #1c1c1c;
+    --color-ink: #f5f5f4;
+    --color-ink-2: #d4d4d4;
+    --color-ink-3: #a3a3a3;
+    --color-line: #262626;
+    --color-accent: #2dd4a8;
+    --color-accent-soft: #0d2a22;
+  }
+  html,
+  body {
+    background: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    min-height: 100dvh;
+    overscroll-behavior-y: none;
+  }
+  button {
+    cursor: pointer;
+  }
+  input,
+  textarea,
+  select {
+    font: inherit;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+    font-variation-settings: "opsz" 144, "SOFT" 30;
+    font-feature-settings: "tnum", "ss01";
+    letter-spacing: -0.025em;
+    font-weight: 400;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  .safe-bottom {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 1rem);
+  }
+  .safe-top {
+    padding-top: calc(env(safe-area-inset-top) + 0.5rem);
+  }
+  .hairline {
+    box-shadow: inset 0 -1px 0 var(--color-line);
+  }
+}
+
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
 }
