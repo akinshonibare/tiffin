@@ -7,8 +7,8 @@ import { getDB } from "@/lib/db";
 import { money } from "@/lib/format";
 import { currentMonthPeriod, monthPeriodFromKey } from "@/lib/budget";
 import { TransactionRow } from "@/components/TransactionRow";
-import { PageHeader } from "@/components/PageHeader";
 import { AddTransactionSheet } from "@/components/AddTransactionSheet";
+import { TiffinWordmark } from "@/components/TiffinWordmark";
 import type { Transaction } from "@/lib/types";
 
 export default function HomePage() {
@@ -70,7 +70,14 @@ export default function HomePage() {
 
   return (
     <div>
-      <PageHeader eyebrow={month.label} title="Tiffin" />
+      <header className="safe-top flex items-end justify-between px-5 pt-3 pb-4">
+        <div>
+          <div className="text-[11px] uppercase tracking-wider text-[var(--color-ink-3)]">
+            {month.label}
+          </div>
+          <TiffinWordmark />
+        </div>
+      </header>
 
       <section className="px-5">
         <div className="rounded-[28px] bg-[var(--color-surface)] p-6">

@@ -25,23 +25,29 @@ const TABS = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [addOpen, setAddOpen] = useState(false);
+  const immersive = pathname === "/play";
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-xl flex-col">
-      <main className="flex-1 pb-32">{children}</main>
+      <main className={cn("flex-1", immersive ? "pb-6" : "pb-32")}>
+        {children}
+      </main>
 
-      <button
-        type="button"
-        onClick={() => setAddOpen(true)}
-        aria-label="Add expense"
-        className="fixed bottom-24 left-1/2 z-30 -translate-x-1/2 rounded-full bg-[var(--color-ink)] px-5 py-3.5 text-[var(--color-bg)] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] active:scale-95 transition-transform"
-      >
-        <span className="flex items-center gap-2 text-sm font-medium">
-          <Plus className="size-4" strokeWidth={2.4} />
-          Add expense
-        </span>
-      </button>
+      {!immersive && (
+        <button
+          type="button"
+          onClick={() => setAddOpen(true)}
+          aria-label="Add expense"
+          className="fixed bottom-24 left-1/2 z-30 -translate-x-1/2 rounded-full bg-[var(--color-ink)] px-5 py-3.5 text-[var(--color-bg)] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] active:scale-95 transition-transform"
+        >
+          <span className="flex items-center gap-2 text-sm font-medium">
+            <Plus className="size-4" strokeWidth={2.4} />
+            Add expense
+          </span>
+        </button>
+      )}
 
+      {!immersive && (
       <nav
         aria-label="Primary"
         className="fixed bottom-0 left-1/2 z-20 w-full max-w-xl -translate-x-1/2 border-t border-[var(--color-line)] bg-[var(--color-surface)]/85 backdrop-blur safe-bottom"
@@ -76,6 +82,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           })}
         </ul>
       </nav>
+      )}
 
       <AddTransactionSheet open={addOpen} onClose={() => setAddOpen(false)} />
     </div>
