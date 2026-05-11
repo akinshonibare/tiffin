@@ -208,7 +208,7 @@ export default function SummaryPage() {
                     borderRadius: 12,
                     fontSize: 12,
                   }}
-                  formatter={(v: number) => money(v)}
+                  formatter={(v) => money(Number(v) || 0)}
                 />
                 <Area
                   type="monotone"
@@ -287,7 +287,7 @@ export default function SummaryPage() {
                     borderRadius: 12,
                     fontSize: 12,
                   }}
-                  formatter={(v: number) => money(v)}
+                  formatter={(v) => money(Number(v) || 0)}
                 />
                 <Bar
                   dataKey="total"
