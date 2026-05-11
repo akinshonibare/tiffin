@@ -267,32 +267,30 @@ export function AddTransactionSheet({
         </Field>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Date">
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="w-full rounded-2xl bg-[var(--color-surface-2)] px-3 py-2.5 text-sm outline-none"
-          />
-        </Field>
-        <Field label="Merchant">
-          <input
-            type="text"
-            placeholder="e.g. Loblaws"
-            value={merchant}
-            onChange={(e) => setMerchant(e.target.value)}
-            className="w-full rounded-2xl bg-[var(--color-surface-2)] px-3 py-2.5 text-sm outline-none"
-          />
-        </Field>
-      </div>
+      <Field label="Date">
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          className="h-11 w-full rounded-2xl bg-[var(--color-surface-2)] px-4 text-sm outline-none"
+        />
+      </Field>
+      <Field label="Merchant">
+        <input
+          type="text"
+          placeholder="e.g. Loblaws"
+          value={merchant}
+          onChange={(e) => setMerchant(e.target.value)}
+          className="h-11 w-full rounded-2xl bg-[var(--color-surface-2)] px-4 text-sm outline-none"
+        />
+      </Field>
       <Field label="Note">
         <input
           type="text"
           placeholder="Anything to remember"
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          className="w-full rounded-2xl bg-[var(--color-surface-2)] px-3 py-2.5 text-sm outline-none"
+          className="h-11 w-full rounded-2xl bg-[var(--color-surface-2)] px-4 text-sm outline-none"
         />
       </Field>
     </Sheet>

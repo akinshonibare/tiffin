@@ -29,8 +29,31 @@ export default function TransactionsPage() {
         .sortBy("date"),
     [period.start, period.end],
   );
+  const accounts = useLiveQuery(() => getDB().accounts.toArray(), []);
 
   const total = (txs ?? []).reduce((a, t) => a + t.amount, 0);
+
+  const byAccount = useMemo(() => {
+    const map = new Map<string, number>();
+    (txs ?? []).forEach((t) => {
+      const key = t.accountId ?? "__none__";
+      map.set(key, (map.get(key) ?? 0) + t.amount);
+    });
+    return Array.from(map.entries())
+      .map(([id, amount]) => {
+        const acct = accounts?.find((a) => a.id === id);
+        return {
+          id,
+          amount,
+          name: acct?.name ?? "Unassigned",
+          bank: acct?.bank,
+          color: acct?.color ?? "#94a3b8",
+          type: acct?.type,
+          last4: acct?.last4,
+        };
+      })
+      .sort((a, b) => b.amount - a.amount);
+  }, [txs, accounts]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, Transaction[]>();
@@ -63,6 +86,39 @@ export default function TransactionsPage() {
           </div>
         </div>
       </section>
+
+      {byAccount.length > 0 && (
+        <section className="mt-4 px-5">
+          <div className="mb-2 px-1 text-[11px] uppercase tracking-wider text-[var(--color-ink-3)]">
+            By account
+          </div>
+          <div className="divide-y divide-[var(--color-line)] rounded-[22px] bg-[var(--color-surface)] px-4">
+            {byAccount.map((row) => (
+              <div
+                key={row.id}
+                className="flex items-center gap-3 py-3 text-sm"
+              >
+                <span
+                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                  style={{ background: row.color }}
+                />
+                <span className="truncate">{row.name}</span>
+                {row.type === "credit" && (
+                  <span className="rounded-full bg-[var(--color-surface-2)] px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-[var(--color-ink-3)]">
+                    Credit
+                  </span>
+                )}
+                {row.last4 && (
+                  <span className="text-xs text-[var(--color-ink-3)]">
+                    ·{row.last4}
+                  </span>
+                )}
+                <span className="ml-auto tabular">{money(row.amount)}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="mt-5 px-5">
         {grouped.length === 0 && (
