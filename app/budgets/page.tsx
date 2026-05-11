@@ -1,11 +1,15 @@
 "use client";
 
 import { useLiveQuery } from "dexie-react-hooks";
-import { useMemo, useState } from "react";
-import { Plus, Pencil } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Plus, Target } from "lucide-react";
 import { getDB, uid } from "@/lib/db";
 import { money, isoToday } from "@/lib/format";
-import { periodForBudget, sumInRange } from "@/lib/budget";
+import {
+  currentMonthPeriod,
+  periodForBudget,
+  sumInRange,
+} from "@/lib/budget";
 import { PageHeader } from "@/components/PageHeader";
 import { BudgetRing } from "@/components/BudgetRing";
 import { Sheet } from "@/components/Sheet";
@@ -15,10 +19,12 @@ import type { Budget, BudgetPeriod, Category } from "@/lib/types";
 export default function BudgetsPage() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<Budget | undefined>();
+  const [overallOpen, setOverallOpen] = useState(false);
 
   const budgets = useLiveQuery(() => getDB().budgets.toArray(), []);
   const categories = useLiveQuery(() => getDB().categories.toArray(), []);
   const txs = useLiveQuery(() => getDB().transactions.toArray(), []);
+  const settings = useLiveQuery(() => getDB().settings.get("singleton"), []);
 
   const usedCatIds = useMemo(
     () => new Set((budgets ?? []).map((b) => b.categoryId)),
@@ -31,6 +37,20 @@ export default function BudgetsPage() {
   const totalBudgetBiweekly = (budgets ?? [])
     .filter((b) => b.period === "biweekly")
     .reduce((a, b) => a + b.amount, 0);
+
+  const month = currentMonthPeriod();
+  const monthSpent = useMemo(
+    () =>
+      (txs ?? [])
+        .filter((t) => t.date >= month.start && t.date <= month.end)
+        .reduce((a, t) => a + t.amount, 0),
+    [txs, month.start, month.end],
+  );
+  const overall = settings?.overallMonthly ?? 0;
+  const overallPct = overall > 0 ? monthSpent / overall : 0;
+  const overallOver = monthSpent > overall && overall > 0;
+  const overallExceedsCats =
+    overall > 0 && totalBudgetMonthly > overall;
 
   return (
     <div>
@@ -52,6 +72,61 @@ export default function BudgetsPage() {
       />
 
       <section className="px-5">
+        <button
+          type="button"
+          onClick={() => setOverallOpen(true)}
+          className="mb-3 flex w-full items-center gap-4 rounded-[22px] bg-[var(--color-surface)] p-4 text-left"
+        >
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
+            <Target className="size-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[11px] uppercase tracking-wider text-[var(--color-ink-3)]">
+              Overall monthly budget
+            </div>
+            {overall > 0 ? (
+              <>
+                <div className="font-display mt-0.5 text-2xl tabular leading-none">
+                  {money(monthSpent)}{" "}
+                  <span className="text-base text-[var(--color-ink-3)]">
+                    / {money(overall)}
+                  </span>
+                </div>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--color-surface-2)]">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${Math.min(100, overallPct * 100)}%`,
+                      background: overallOver
+                        ? "var(--color-danger)"
+                        : overallPct > 0.85
+                          ? "var(--color-warn)"
+                          : "var(--color-accent)",
+                    }}
+                  />
+                </div>
+                <div className="mt-1.5 text-xs text-[var(--color-ink-3)]">
+                  {overallOver
+                    ? `${money(monthSpent - overall)} over for ${month.label}`
+                    : `${money(overall - monthSpent)} left for ${month.label}`}
+                  {overallExceedsCats && (
+                    <span className="ml-1 text-[var(--color-warn)]">
+                      · category budgets sum to {money(totalBudgetMonthly)}
+                    </span>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="mt-0.5 text-sm text-[var(--color-ink-3)]">
+                Set a single cap for the whole month →
+              </div>
+            )}
+          </div>
+        </button>
+
+        <div className="mb-1.5 px-1 text-[11px] uppercase tracking-wider text-[var(--color-ink-3)]">
+          Category budgets
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-[22px] bg-[var(--color-surface)] p-4">
             <div className="text-[11px] uppercase tracking-wider text-[var(--color-ink-3)]">
@@ -164,7 +239,95 @@ export default function BudgetsPage() {
         categories={categories ?? []}
         usedCategoryIds={usedCatIds}
       />
+      <OverallEditor
+        open={overallOpen}
+        onClose={() => setOverallOpen(false)}
+        initial={overall}
+      />
     </div>
+  );
+}
+
+function OverallEditor({
+  open,
+  onClose,
+  initial,
+}: {
+  open: boolean;
+  onClose: () => void;
+  initial: number;
+}) {
+  const [amount, setAmount] = useState("");
+
+  useEffect(() => {
+    if (!open) return;
+    setAmount(initial > 0 ? String(initial) : "");
+  }, [open, initial]);
+
+  const amt = Number(amount);
+
+  async function save() {
+    const db = getDB();
+    await db.settings.update("singleton", {
+      overallMonthly: amt > 0 ? amt : undefined,
+    });
+    onClose();
+  }
+
+  async function clear() {
+    await getDB().settings.update("singleton", { overallMonthly: undefined });
+    onClose();
+  }
+
+  return (
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title="Overall monthly budget"
+      footer={
+        <div className="flex gap-2">
+          {initial > 0 && (
+            <button
+              type="button"
+              onClick={clear}
+              className="flex-1 rounded-full border border-[var(--color-line)] py-3 text-sm text-[var(--color-danger)]"
+            >
+              Remove
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={save}
+            disabled={amount !== "" && (!Number.isFinite(amt) || amt < 0)}
+            className="flex-1 rounded-full bg-[var(--color-ink)] py-3 text-sm font-medium text-[var(--color-bg)] disabled:opacity-40"
+          >
+            Save
+          </button>
+        </div>
+      }
+    >
+      <p className="mb-4 text-sm text-[var(--color-ink-3)]">
+        One single cap for the whole month, regardless of categories. Useful
+        as a top-line goal — Home and Budgets will show progress against this
+        number.
+      </p>
+      <div className="mb-4">
+        <div className="mb-1.5 text-[11px] uppercase tracking-wider text-[var(--color-ink-3)]">
+          Amount (CAD)
+        </div>
+        <input
+          type="number"
+          inputMode="decimal"
+          step="50"
+          min="0"
+          autoFocus
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          placeholder="e.g. 3000"
+          className="font-display w-full rounded-2xl bg-[var(--color-surface-2)] px-4 py-3 text-2xl tabular outline-none"
+        />
+      </div>
+    </Sheet>
   );
 }
 
@@ -187,7 +350,7 @@ function BudgetEditor({
   const [anchorDate, setAnchorDate] = useState<string>(isoToday());
   const [rollover, setRollover] = useState(false);
 
-  useMemoSync(() => {
+  useEffect(() => {
     if (!open) return;
     if (editing) {
       setCategoryId(editing.categoryId);
@@ -203,6 +366,7 @@ function BudgetEditor({
       setAnchorDate(isoToday());
       setRollover(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, editing?.id]);
 
   const amt = Number(amount);
@@ -370,9 +534,4 @@ function BudgetEditor({
       </label>
     </Sheet>
   );
-}
-
-import { useEffect } from "react";
-function useMemoSync(fn: () => void, deps: unknown[]) {
-  useEffect(fn, deps);
 }

@@ -59,5 +59,6 @@ export interface Settings {
   theme: "light" | "dark" | "system";
   currency: "CAD";
   biweeklyAnchor?: string;
+  overallMonthly?: number;
   seeded?: boolean;
 }

@@ -46,6 +46,7 @@ export default function HomePage() {
   const categories = useLiveQuery(() => getDB().categories.toArray(), []);
   const allTxs = useLiveQuery(() => getDB().transactions.toArray(), []);
   const accounts = useLiveQuery(() => getDB().accounts.toArray(), []);
+  const settings = useLiveQuery(() => getDB().settings.get("singleton"), []);
 
   const recapAvailable = useMemo(() => {
     if (!allTxs || !categories || !accounts) return null;
@@ -62,9 +63,12 @@ export default function HomePage() {
   const total = (txs ?? []).reduce((a, t) => a + t.amount, 0);
   const prevTotal = (prevTxs ?? []).reduce((a, t) => a + t.amount, 0);
   const delta = total - prevTotal;
-  const monthlyBudget = (budgets ?? [])
+  const overall = settings?.overallMonthly ?? 0;
+  const summedCategoryBudgets = (budgets ?? [])
     .filter((b) => b.period === "monthly")
     .reduce((a, b) => a + b.amount, 0);
+  const monthlyBudget = overall > 0 ? overall : summedCategoryBudgets;
+  const budgetLabel = overall > 0 ? "monthly cap" : "monthly budget";
   const budgetPct = monthlyBudget > 0 ? Math.min(1, total / monthlyBudget) : 0;
 
   const byCat = useMemo(() => {
@@ -128,7 +132,9 @@ export default function HomePage() {
           {monthlyBudget > 0 && (
             <div className="mt-5">
               <div className="mb-1.5 flex items-center justify-between text-xs text-[var(--color-ink-3)]">
-                <span>Of {money(monthlyBudget)} monthly budget</span>
+                <span>
+                  Of {money(monthlyBudget)} {budgetLabel}
+                </span>
                 <span className="tabular">
                   {Math.round(budgetPct * 100)}%
                 </span>
