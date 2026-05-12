@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { getDB } from "@/lib/db";
 import { money } from "@/lib/format";
-import { monthPeriodFromKey } from "@/lib/budget";
+import { monthPeriodFromKey, signedAmount } from "@/lib/budget";
 import { PageHeader } from "@/components/PageHeader";
 import { MonthPicker } from "@/components/MonthPicker";
 import { TransactionRow } from "@/components/TransactionRow";
@@ -19,6 +19,7 @@ type Filter =
   | { kind: "all" }
   | { kind: "account"; id: string }
   | { kind: "card"; id: string }
+  | { kind: "tag"; name: string }
   | { kind: "unassigned" };
 
 export default function TransactionsPage() {
@@ -49,16 +50,26 @@ export default function TransactionsPage() {
     if (filter.kind === "unassigned") return all.filter((t) => !t.accountId);
     if (filter.kind === "account")
       return all.filter((t) => t.accountId === filter.id);
+    if (filter.kind === "tag")
+      return all.filter((t) => t.tags?.includes(filter.name));
     return all.filter((t) => t.cardId === filter.id);
   }, [allMonthTxs, filter]);
 
-  const total = txs.reduce((a, t) => a + t.amount, 0);
+  const tagsInMonth = useMemo(() => {
+    const m = new Map<string, number>();
+    (allMonthTxs ?? []).forEach((t) =>
+      t.tags?.forEach((tag) => m.set(tag, (m.get(tag) ?? 0) + 1)),
+    );
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+  }, [allMonthTxs]);
+
+  const total = txs.reduce((a, t) => a + signedAmount(t), 0);
 
   const byAccount = useMemo(() => {
     const map = new Map<string, number>();
     (allMonthTxs ?? []).forEach((t) => {
       const key = t.accountId ?? "__none__";
-      map.set(key, (map.get(key) ?? 0) + t.amount);
+      map.set(key, (map.get(key) ?? 0) + signedAmount(t));
     });
     return Array.from(map.entries())
       .map(([id, amount]) => {
@@ -89,7 +100,7 @@ export default function TransactionsPage() {
       .filter((t) => t.accountId === filter.id)
       .forEach((t) => {
         if (!t.cardId) return;
-        m.set(t.cardId, (m.get(t.cardId) ?? 0) + t.amount);
+        m.set(t.cardId, (m.get(t.cardId) ?? 0) + signedAmount(t));
       });
     return m;
   }, [allMonthTxs, filter]);
@@ -113,6 +124,7 @@ export default function TransactionsPage() {
   const filterLabel = useMemo(() => {
     if (filter.kind === "all") return null;
     if (filter.kind === "unassigned") return "Unassigned";
+    if (filter.kind === "tag") return `#${filter.name}`;
     if (filter.kind === "account") {
       const a = accounts?.find((x) => x.id === filter.id);
       return a?.name ?? "Account";
@@ -165,7 +177,7 @@ export default function TransactionsPage() {
                 onClick={() => setFilter({ kind: "all" })}
                 label="All"
                 amount={(allMonthTxs ?? []).reduce(
-                  (a, t) => a + t.amount,
+                  (a, t) => a + signedAmount(t),
                   0,
                 )}
               />
@@ -221,6 +233,49 @@ export default function TransactionsPage() {
                   amount={cardTotals.get(c.id) ?? 0}
                 />
               ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {tagsInMonth.length > 0 && filter.kind !== "card" && (
+        <section className="mt-2 px-5">
+          <div className="mb-2 px-1 text-[11px] uppercase tracking-wider text-[var(--color-ink-3)]">
+            Filter by tag
+          </div>
+          <div className="-mx-5 overflow-x-auto px-5">
+            <div className="flex gap-2 pb-1">
+              {tagsInMonth.map(([name, count]) => {
+                const active =
+                  filter.kind === "tag" && filter.name === name;
+                return (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() =>
+                      setFilter(
+                        active ? { kind: "all" } : { kind: "tag", name },
+                      )
+                    }
+                    className={cn(
+                      "shrink-0 rounded-full border px-3 py-1.5 text-sm whitespace-nowrap transition-colors",
+                      active
+                        ? "border-[var(--color-ink)] bg-[var(--color-ink)] text-[var(--color-bg)]"
+                        : "border-[var(--color-line)] bg-[var(--color-surface)] text-[var(--color-ink-2)]",
+                    )}
+                  >
+                    #{name}{" "}
+                    <span
+                      className={cn(
+                        "text-xs",
+                        active ? "opacity-80" : "text-[var(--color-ink-3)]",
+                      )}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </section>

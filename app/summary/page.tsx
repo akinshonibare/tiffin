@@ -19,7 +19,7 @@ import { getDB } from "@/lib/db";
 import { money, monthLabel } from "@/lib/format";
 import { PageHeader } from "@/components/PageHeader";
 import { MonthPicker } from "@/components/MonthPicker";
-import { monthPeriodFromKey } from "@/lib/budget";
+import { monthPeriodFromKey, signedAmount } from "@/lib/budget";
 
 export default function SummaryPage() {
   const [monthKey, setMonthKey] = useState(() =>
@@ -38,7 +38,7 @@ export default function SummaryPage() {
     [txs, period.start, period.end],
   );
 
-  const total = inMonth.reduce((a, t) => a + t.amount, 0);
+  const total = inMonth.reduce((a, t) => a + signedAmount(t), 0);
 
   const prevPeriod = useMemo(() => {
     const [y, m] = monthKey.split("-").map(Number);
@@ -51,7 +51,7 @@ export default function SummaryPage() {
     () =>
       (txs ?? [])
         .filter((t) => t.date >= prevPeriod.start && t.date <= prevPeriod.end)
-        .reduce((a, t) => a + t.amount, 0),
+        .reduce((a, t) => a + signedAmount(t), 0),
     [txs, prevPeriod.start, prevPeriod.end],
   );
 
@@ -59,7 +59,7 @@ export default function SummaryPage() {
     const map = new Map<string, number>();
     inMonth.forEach((t) => {
       if (!t.categoryId) return;
-      map.set(t.categoryId, (map.get(t.categoryId) ?? 0) + t.amount);
+      map.set(t.categoryId, (map.get(t.categoryId) ?? 0) + signedAmount(t));
     });
     return Array.from(map.entries())
       .map(([id, amount]) => {
@@ -80,7 +80,7 @@ export default function SummaryPage() {
     inMonth.forEach((t) => {
       const k = t.merchant?.trim();
       if (!k) return;
-      map.set(k, (map.get(k) ?? 0) + t.amount);
+      map.set(k, (map.get(k) ?? 0) + signedAmount(t));
     });
     return Array.from(map.entries())
       .map(([name, amount]) => ({ name, amount }))
@@ -97,7 +97,7 @@ export default function SummaryPage() {
       const p = monthPeriodFromKey(key);
       const sum = (txs ?? [])
         .filter((t) => t.date >= p.start && t.date <= p.end)
-        .reduce((a, t) => a + t.amount, 0);
+        .reduce((a, t) => a + signedAmount(t), 0);
       months.push({
         key,
         label: d.toLocaleDateString("en-CA", { month: "short" }),
@@ -115,7 +115,7 @@ export default function SummaryPage() {
     inMonth.forEach((t) => {
       const d = Number(t.date.slice(8, 10));
       const idx = d - 1;
-      if (idx >= 0 && idx < arr.length) arr[idx].total += t.amount;
+      if (idx >= 0 && idx < arr.length) arr[idx].total += signedAmount(t);
     });
     return arr;
   }, [inMonth, monthKey]);

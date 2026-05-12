@@ -293,13 +293,18 @@ export function computeRecords(txs: Transaction[]): Records {
   const byMonth = new Map<string, number>();
   const byMerchant = new Map<string, number>();
   for (const t of txs) {
-    if (!biggestExpense || t.amount > biggestExpense.amount) biggestExpense = t;
-    byDay.set(t.date, (byDay.get(t.date) ?? 0) + t.amount);
+    // Records reflect actual *expenses*; refunds don't compete for biggest.
+    if (!t.isRefund) {
+      if (!biggestExpense || t.amount > biggestExpense.amount)
+        biggestExpense = t;
+    }
+    const signed = t.isRefund ? -t.amount : t.amount;
+    byDay.set(t.date, (byDay.get(t.date) ?? 0) + signed);
     byMonth.set(
       t.date.slice(0, 7),
-      (byMonth.get(t.date.slice(0, 7)) ?? 0) + t.amount,
+      (byMonth.get(t.date.slice(0, 7)) ?? 0) + signed,
     );
-    if (t.merchant)
+    if (t.merchant && !t.isRefund)
       byMerchant.set(t.merchant, (byMerchant.get(t.merchant) ?? 0) + t.amount);
   }
   const biggestDay = [...byDay.entries()]

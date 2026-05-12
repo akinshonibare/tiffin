@@ -11,6 +11,8 @@ import {
   Sun,
   Moon,
   Monitor,
+  Repeat,
+  BellRing,
 } from "lucide-react";
 import { useRef, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
@@ -19,6 +21,7 @@ import { setTheme } from "@/components/ThemeInit";
 import { cn } from "@/lib/utils";
 import type {
   Account,
+  BackupCadence,
   Budget,
   Card,
   Category,
@@ -50,13 +53,14 @@ export default function SettingsPage() {
   async function exportData() {
     const db = getDB();
     const data = {
-      version: 1,
+      version: 2,
       exportedAt: new Date().toISOString(),
       accounts: await db.accounts.toArray(),
       cards: await db.cards.toArray(),
       categories: await db.categories.toArray(),
       budgets: await db.budgets.toArray(),
       transactions: await db.transactions.toArray(),
+      recurrences: await db.recurrences.toArray(),
       settings: await db.settings.toArray(),
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], {
@@ -68,6 +72,9 @@ export default function SettingsPage() {
     a.download = `tiffin-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
+    await db.settings.update("singleton", {
+      lastExportAt: new Date().toISOString(),
+    });
   }
 
   async function stageImport(file: File) {
@@ -107,6 +114,7 @@ export default function SettingsPage() {
           db.categories,
           db.budgets,
           db.transactions,
+          db.recurrences,
           db.settings,
         ],
         async () => {
@@ -129,6 +137,10 @@ export default function SettingsPage() {
           if (Array.isArray(data.transactions)) {
             await db.transactions.clear();
             await db.transactions.bulkAdd(data.transactions);
+          }
+          if (Array.isArray(data.recurrences)) {
+            await db.recurrences.clear();
+            await db.recurrences.bulkAdd(data.recurrences);
           }
           if (Array.isArray(data.settings)) {
             await db.settings.clear();
@@ -182,7 +194,53 @@ export default function SettingsPage() {
             label="Banks & cards"
             hint="Manage where money comes from"
           />
+          <Row
+            href="/settings/recurring"
+            icon={<Repeat className="size-4" />}
+            label="Recurring expenses"
+            hint="Subscriptions, rent, bills"
+          />
         </div>
+      </section>
+
+      <section className="mt-6 px-5">
+        <SectionTitle title="Backup reminder" />
+        <div className="grid grid-cols-3 gap-2 rounded-[22px] bg-[var(--color-surface)] p-2">
+          {(
+            [
+              { id: "off", label: "Off" },
+              { id: "biweekly", label: "2 weeks" },
+              { id: "monthly", label: "Monthly" },
+            ] as const
+          ).map((opt) => {
+            const active = (settings?.backupCadence ?? "off") === opt.id;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={async () => {
+                  await getDB().settings.update("singleton", {
+                    backupCadence: opt.id as BackupCadence,
+                  });
+                }}
+                className={cn(
+                  "flex items-center justify-center gap-1 rounded-[16px] py-3 text-xs",
+                  active
+                    ? "bg-[var(--color-ink)] text-[var(--color-bg)]"
+                    : "text-[var(--color-ink-2)]",
+                )}
+              >
+                {opt.id !== "off" && <BellRing className="size-3.5" />}
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-2 px-1 text-[11px] text-[var(--color-ink-3)]">
+          {settings?.backupCadence && settings.backupCadence !== "off"
+            ? `A nudge will appear on Home when it's been ${settings.backupCadence === "biweekly" ? "14" : "30"} days since your last export.`
+            : "When on, Tiffin reminds you to export a JSON snapshot."}
+        </p>
       </section>
 
       <section className="mt-6 px-5">
@@ -390,6 +448,7 @@ interface ImportShape {
   categories?: Category[];
   budgets?: Budget[];
   transactions?: Transaction[];
+  recurrences?: import("@/lib/types").Recurrence[];
   settings?: Settings[];
 }
 

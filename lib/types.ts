@@ -51,8 +51,31 @@ export interface Transaction {
   categoryId?: string;
   merchant?: string;
   note?: string;
+  tags?: string[];
+  isRefund?: boolean;
+  recurrenceId?: string;
   createdAt: number;
 }
+
+export type RecurrencePeriod = "weekly" | "biweekly" | "monthly";
+
+export interface Recurrence {
+  id: string;
+  name: string;
+  amount: number;
+  period: RecurrencePeriod;
+  nextDue: string;
+  accountId?: string;
+  cardId?: string;
+  categoryId?: string;
+  merchant?: string;
+  note?: string;
+  tags?: string[];
+  active: boolean;
+  createdAt: number;
+}
+
+export type BackupCadence = "off" | "biweekly" | "monthly";
 
 export interface Settings {
   id: "singleton";
@@ -60,5 +83,7 @@ export interface Settings {
   currency: "CAD";
   biweeklyAnchor?: string;
   overallMonthly?: number;
+  backupCadence?: BackupCadence;
+  lastExportAt?: string;
   seeded?: boolean;
 }

@@ -25,7 +25,7 @@ export function TransactionRow({
   );
 
   const merchantIcon = iconForMerchant(tx.merchant);
-  const icon = merchantIcon ?? category?.icon ?? "✨";
+  const icon = tx.isRefund ? "↩" : (merchantIcon ?? category?.icon ?? "✨");
 
   return (
     <button
@@ -36,14 +36,20 @@ export function TransactionRow({
       <div
         className="flex h-10 w-10 items-center justify-center rounded-full text-lg"
         style={{
-          background: (category?.color ?? "#94a3b8") + "22",
+          background: tx.isRefund
+            ? "color-mix(in srgb, var(--color-accent) 18%, transparent)"
+            : (category?.color ?? "#94a3b8") + "22",
         }}
       >
-        <span>{icon}</span>
+        <span style={tx.isRefund ? { color: "var(--color-accent)" } : undefined}>
+          {icon}
+        </span>
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5 truncate text-sm font-medium">
-          {tx.merchant || category?.name || "Expense"}
+          <span className="truncate">
+            {tx.merchant || category?.name || (tx.isRefund ? "Refund" : "Expense")}
+          </span>
           {dejaVu && (
             <span
               title="Same amount as another expense today"
@@ -58,9 +64,25 @@ export function TransactionRow({
           {account ? ` · ${account.name}` : ""}
           {tx.note ? ` · ${tx.note}` : ""}
         </div>
+        {tx.tags && tx.tags.length > 0 && (
+          <div className="mt-1 flex flex-wrap gap-1">
+            {tx.tags.map((t) => (
+              <span
+                key={t}
+                className="rounded-full bg-[var(--color-surface-2)] px-1.5 py-0.5 text-[10px] text-[var(--color-ink-3)]"
+              >
+                #{t}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
-      <div className="tabular text-sm font-medium">
-        −{money(tx.amount)}
+      <div
+        className="tabular text-sm font-medium"
+        style={tx.isRefund ? { color: "var(--color-accent)" } : undefined}
+      >
+        {tx.isRefund ? "+" : "−"}
+        {money(tx.amount)}
       </div>
     </button>
   );

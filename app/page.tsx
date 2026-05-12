@@ -7,12 +7,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, ChevronRight } from "lucide-react";
 import { getDB } from "@/lib/db";
 import { money } from "@/lib/format";
-import { currentMonthPeriod, monthPeriodFromKey } from "@/lib/budget";
+import { currentMonthPeriod, monthPeriodFromKey, signedAmount } from "@/lib/budget";
 import { TransactionRow } from "@/components/TransactionRow";
 import { AddTransactionSheet } from "@/components/AddTransactionSheet";
 import { TiffinWordmark } from "@/components/TiffinWordmark";
 import { RecordsSheet } from "@/components/RecordsSheet";
 import { YearInTiffin } from "@/components/YearInTiffin";
+import { RecurringPendingCard } from "@/components/RecurringPendingCard";
+import { BackupReminder } from "@/components/BackupReminder";
 import { showToast } from "@/components/Toast";
 import { buildRecap, getCurrentRecapKey } from "@/lib/recap";
 import {
@@ -86,8 +88,8 @@ export default function HomePage() {
     return { puzzle, completed };
   }, [allTxs, categories, accounts]);
 
-  const total = (txs ?? []).reduce((a, t) => a + t.amount, 0);
-  const prevTotal = (prevTxs ?? []).reduce((a, t) => a + t.amount, 0);
+  const total = (txs ?? []).reduce((a, t) => a + signedAmount(t), 0);
+  const prevTotal = (prevTxs ?? []).reduce((a, t) => a + signedAmount(t), 0);
   const delta = total - prevTotal;
   const overall = settings?.overallMonthly ?? 0;
   const summedCategoryBudgets = (budgets ?? [])
@@ -107,7 +109,7 @@ export default function HomePage() {
     const map = new Map<string, number>();
     (txs ?? []).forEach((t) => {
       if (!t.categoryId) return;
-      map.set(t.categoryId, (map.get(t.categoryId) ?? 0) + t.amount);
+      map.set(t.categoryId, (map.get(t.categoryId) ?? 0) + signedAmount(t));
     });
     return Array.from(map.entries())
       .map(([id, amount]) => ({
@@ -279,6 +281,8 @@ export default function HomePage() {
       </header>
 
       <YearInTiffin />
+      <RecurringPendingCard />
+      <BackupReminder />
 
       <section className="px-5">
         <div className="rounded-[28px] bg-[var(--color-surface)] p-6">

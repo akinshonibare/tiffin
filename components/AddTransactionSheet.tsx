@@ -33,6 +33,9 @@ export function AddTransactionSheet({
   const [categoryId, setCategoryId] = useState<string | undefined>();
   const [merchant, setMerchant] = useState("");
   const [note, setNote] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagDraft, setTagDraft] = useState("");
+  const [isRefund, setIsRefund] = useState(false);
 
   const accounts = useLiveQuery(
     () => (open ? getDB().accounts.filter((a) => !a.archived).toArray() : []),
@@ -62,6 +65,8 @@ export function AddTransactionSheet({
       setCategoryId(initial.categoryId);
       setMerchant(initial.merchant ?? "");
       setNote(initial.note ?? "");
+      setTags(initial.tags ?? []);
+      setIsRefund(!!initial.isRefund);
     } else {
       setAmount("");
       setDate(isoToday());
@@ -70,8 +75,22 @@ export function AddTransactionSheet({
       setCategoryId(categories?.[0]?.id);
       setMerchant("");
       setNote("");
+      setTags([]);
+      setIsRefund(false);
     }
+    setTagDraft("");
   }, [open, initial, accounts, categories]);
+
+  function commitTagDraft() {
+    const raw = tagDraft.trim().replace(/^#/, "").toLowerCase();
+    if (!raw) return;
+    if (tags.includes(raw)) {
+      setTagDraft("");
+      return;
+    }
+    setTags((t) => [...t, raw]);
+    setTagDraft("");
+  }
 
   const filteredCards = useMemo(
     () => (cards ?? []).filter((c) => !accountId || c.accountId === accountId),
@@ -96,6 +115,8 @@ export function AddTransactionSheet({
         categoryId,
         merchant: merchant || undefined,
         note: note || undefined,
+        tags: tags.length > 0 ? tags : undefined,
+        isRefund: isRefund || undefined,
       });
     } else {
       isNew = true;
@@ -115,6 +136,8 @@ export function AddTransactionSheet({
         categoryId,
         merchant: merchant || undefined,
         note: note || undefined,
+        tags: tags.length > 0 ? tags : undefined,
+        isRefund: isRefund || undefined,
         createdAt: now,
       });
     }
@@ -212,13 +235,32 @@ export function AddTransactionSheet({
         </div>
       }
     >
-      <div className="mt-4 mb-6 text-center">
+      <div className="mt-4 mb-4 text-center">
         <div className="text-[11px] uppercase tracking-wider text-[var(--color-ink-3)]">
-          Amount (CAD)
+          {isRefund ? "Refund (CAD)" : "Amount (CAD)"}
         </div>
-        <div className="font-display mt-1 text-6xl tabular">
+        <div
+          className="font-display mt-1 text-6xl tabular"
+          style={isRefund ? { color: "var(--color-accent)" } : undefined}
+        >
+          {isRefund ? "+" : ""}
           {money(amountNum || 0)}
         </div>
+      </div>
+
+      <div className="mb-5 flex justify-center">
+        <button
+          type="button"
+          onClick={() => setIsRefund((v) => !v)}
+          className={cn(
+            "flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors",
+            isRefund
+              ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-white"
+              : "border-[var(--color-line)] text-[var(--color-ink-3)]",
+          )}
+        >
+          ↩ Refund
+        </button>
       </div>
 
       <div className="mb-5 grid grid-cols-3 gap-2">
@@ -351,6 +393,49 @@ export function AddTransactionSheet({
           onChange={(e) => setNote(e.target.value)}
           className="h-11 w-full rounded-2xl bg-[var(--color-surface-2)] px-4 text-sm outline-none"
         />
+      </Field>
+
+      <Field label="Tags">
+        <div className="flex flex-wrap items-center gap-1.5 rounded-2xl bg-[var(--color-surface-2)] px-2.5 py-2">
+          {tags.map((t) => (
+            <span
+              key={t}
+              className="flex items-center gap-1 rounded-full bg-[var(--color-surface)] px-2 py-0.5 text-xs"
+            >
+              #{t}
+              <button
+                type="button"
+                aria-label={`Remove ${t}`}
+                onClick={() =>
+                  setTags((cur) => cur.filter((x) => x !== t))
+                }
+                className="text-[var(--color-ink-3)] hover:text-[var(--color-ink)]"
+              >
+                ×
+              </button>
+            </span>
+          ))}
+          <input
+            type="text"
+            placeholder={tags.length === 0 ? "vacation, work…" : ""}
+            value={tagDraft}
+            onChange={(e) => setTagDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === ",") {
+                e.preventDefault();
+                commitTagDraft();
+              } else if (
+                e.key === "Backspace" &&
+                tagDraft === "" &&
+                tags.length > 0
+              ) {
+                setTags((cur) => cur.slice(0, -1));
+              }
+            }}
+            onBlur={commitTagDraft}
+            className="min-w-[80px] flex-1 bg-transparent px-1 py-0.5 text-sm outline-none"
+          />
+        </div>
       </Field>
     </Sheet>
   );

@@ -8,6 +8,7 @@ import { ChevronRight, X } from "lucide-react";
 import { getDB } from "@/lib/db";
 import { money, monthLabel } from "@/lib/format";
 import { computeRecords } from "@/lib/easter";
+import { signedAmount } from "@/lib/budget";
 
 export function YearInTiffin() {
   const [dismissed, setDismissed] = useState(false);
@@ -36,11 +37,11 @@ export function YearInTiffin() {
 
   const data = useMemo(() => {
     if (!eligible) return null;
-    const total = eligible.reduce((a, t) => a + t.amount, 0);
+    const total = eligible.reduce((a, t) => a + signedAmount(t), 0);
     const byCat = new Map<string, number>();
     eligible.forEach((t) => {
       if (!t.categoryId) return;
-      byCat.set(t.categoryId, (byCat.get(t.categoryId) ?? 0) + t.amount);
+      byCat.set(t.categoryId, (byCat.get(t.categoryId) ?? 0) + signedAmount(t));
     });
     const topCat = [...byCat.entries()]
       .map(([id, amount]) => ({

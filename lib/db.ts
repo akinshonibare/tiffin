@@ -4,6 +4,7 @@ import type {
   Budget,
   Card,
   Category,
+  Recurrence,
   Settings,
   Transaction,
 } from "./types";
@@ -14,6 +15,7 @@ export class TiffinDB extends Dexie {
   categories!: EntityTable<Category, "id">;
   budgets!: EntityTable<Budget, "id">;
   transactions!: EntityTable<Transaction, "id">;
+  recurrences!: EntityTable<Recurrence, "id">;
   settings!: EntityTable<Settings, "id">;
 
   constructor() {
@@ -24,6 +26,16 @@ export class TiffinDB extends Dexie {
       categories: "id, name, archived, createdAt",
       budgets: "id, categoryId, period, createdAt",
       transactions: "id, date, accountId, cardId, categoryId, createdAt",
+      settings: "id",
+    });
+    this.version(2).stores({
+      accounts: "id, name, bank, type, archived, createdAt",
+      cards: "id, accountId, archived, createdAt",
+      categories: "id, name, archived, createdAt",
+      budgets: "id, categoryId, period, createdAt",
+      transactions:
+        "id, date, accountId, cardId, categoryId, recurrenceId, createdAt",
+      recurrences: "id, period, nextDue, active, createdAt",
       settings: "id",
     });
   }

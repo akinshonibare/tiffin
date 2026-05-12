@@ -1,5 +1,16 @@
 import type { Budget, Transaction } from "./types";
 
+/**
+ * The signed amount of a transaction. Refunds subtract from totals.
+ */
+export function signedAmount(t: Transaction): number {
+  return t.isRefund ? -t.amount : t.amount;
+}
+
+export function sumSigned(txs: Transaction[]): number {
+  return txs.reduce((a, t) => a + signedAmount(t), 0);
+}
+
 export interface Period {
   start: string;
   end: string;
@@ -62,7 +73,7 @@ export function sumInRange(
   end: string,
 ): number {
   return txs.reduce((acc, t) => {
-    if (t.date >= start && t.date <= end) return acc + Math.max(0, t.amount);
+    if (t.date >= start && t.date <= end) return acc + signedAmount(t);
     return acc;
   }, 0);
 }
