@@ -272,7 +272,7 @@ export function AddTransactionSheet({
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          className="h-11 w-full rounded-2xl bg-[var(--color-surface-2)] px-4 text-sm outline-none"
+          className="block h-11 w-full min-w-0 max-w-full appearance-none rounded-2xl bg-[var(--color-surface-2)] px-4 text-sm outline-none"
         />
       </Field>
       <Field label="Merchant">

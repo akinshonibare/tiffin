@@ -65,7 +65,7 @@ export function Sheet({
                 <X className="size-4" />
               </button>
             </div>
-            <div className="max-h-[78dvh] overflow-y-auto px-5 pb-2">
+            <div className="no-scrollbar max-h-[78dvh] overflow-y-auto overflow-x-hidden px-5 pb-2">
               {children}
             </div>
             {footer && (
