@@ -10,7 +10,9 @@ import { PageHeader } from "@/components/PageHeader";
 import { MonthPicker } from "@/components/MonthPicker";
 import { TransactionRow } from "@/components/TransactionRow";
 import { AddTransactionSheet } from "@/components/AddTransactionSheet";
+import { PullHint } from "@/components/PullHint";
 import { cn } from "@/lib/utils";
+import { dejaVuIds, EMPTY_ACTIVITY, pickDeterministic } from "@/lib/easter";
 import type { Transaction } from "@/lib/types";
 
 type Filter =
@@ -101,6 +103,12 @@ export default function TransactionsPage() {
     });
     return Array.from(map.entries());
   }, [txs]);
+
+  const dejaSet = useMemo(() => dejaVuIds(allMonthTxs ?? []), [allMonthTxs]);
+  const emptyCopy = useMemo(
+    () => pickDeterministic(EMPTY_ACTIVITY, period.start),
+    [period.start],
+  );
 
   const filterLabel = useMemo(() => {
     if (filter.kind === "all") return null;
@@ -239,7 +247,7 @@ export default function TransactionsPage() {
         {grouped.length === 0 && (
           <div className="rounded-[22px] bg-[var(--color-surface)] py-10 text-center text-sm text-[var(--color-ink-3)]">
             {filter.kind === "all"
-              ? "Nothing logged for this month."
+              ? emptyCopy
               : `No expenses on ${filterLabel} this month.`}
           </div>
         )}
@@ -257,6 +265,7 @@ export default function TransactionsPage() {
                 <TransactionRow
                   key={t.id}
                   tx={t}
+                  dejaVu={dejaSet.has(t.id)}
                   onClick={() => {
                     setEditing(t);
                     setOpen(true);
@@ -273,6 +282,7 @@ export default function TransactionsPage() {
         onClose={() => setOpen(false)}
         initial={editing}
       />
+      <PullHint />
     </div>
   );
 }

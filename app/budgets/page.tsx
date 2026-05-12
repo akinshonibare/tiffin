@@ -14,6 +14,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { BudgetRing } from "@/components/BudgetRing";
 import { Sheet } from "@/components/Sheet";
 import { cn } from "@/lib/utils";
+import { EMPTY_BUDGETS, pickDeterministic } from "@/lib/easter";
 import type { Budget, BudgetPeriod, Category } from "@/lib/types";
 
 export default function BudgetsPage() {
@@ -150,9 +151,7 @@ export default function BudgetsPage() {
       <section className="mt-5 px-5">
         {(budgets ?? []).length === 0 && (
           <div className="rounded-[22px] bg-[var(--color-surface)] py-10 text-center text-sm text-[var(--color-ink-3)]">
-            No budgets yet.
-            <br />
-            Tap <strong>Budget</strong> to set one per category.
+            {pickDeterministic(EMPTY_BUDGETS, new Date().toDateString())}
           </div>
         )}
         <div className="space-y-3">

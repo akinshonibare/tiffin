@@ -10,9 +10,11 @@ import {
   Plus,
   Settings as SettingsIcon,
 } from "lucide-react";
+import { motion } from "framer-motion";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { AddTransactionSheet } from "./AddTransactionSheet";
+import { ToastHost } from "./Toast";
 
 const TABS = [
   { href: "/", label: "Home", icon: Home },
@@ -75,10 +77,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       : "text-[var(--color-ink-3)]",
                   )}
                 >
-                  <Icon
-                    className="size-5"
-                    strokeWidth={active ? 2.2 : 1.8}
-                  />
+                  <motion.span
+                    key={String(active)}
+                    initial={
+                      active ? { scale: 0.8, y: 2 } : { scale: 1, y: 0 }
+                    }
+                    animate={{ scale: 1, y: 0 }}
+                    transition={{
+                      type: "spring",
+                      stiffness: 500,
+                      damping: 18,
+                    }}
+                  >
+                    <Icon
+                      className="size-5"
+                      strokeWidth={active ? 2.2 : 1.8}
+                    />
+                  </motion.span>
                   <span>{t.label}</span>
                 </Link>
               </li>
@@ -89,6 +104,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       )}
 
       <AddTransactionSheet open={addOpen} onClose={() => setAddOpen(false)} />
+      <ToastHost />
     </div>
   );
 }

@@ -59,11 +59,11 @@ export function Sheet({
             onDragEnd={(_, info) => {
               if (info.offset.y > 120 || info.velocity.y > 600) onClose();
             }}
-            className="fixed inset-x-0 bottom-0 z-50 mx-auto max-h-[92dvh] w-full max-w-xl overflow-hidden rounded-t-[28px] bg-[var(--color-surface)] shadow-[0_-20px_60px_-20px_rgba(0,0,0,0.4)]"
+            className="fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[92dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-[28px] bg-[var(--color-surface)] shadow-[0_-20px_60px_-20px_rgba(0,0,0,0.4)]"
           >
             <div
               onPointerDown={(e) => dragControls.start(e)}
-              className="cursor-grab touch-none select-none active:cursor-grabbing"
+              className="shrink-0 cursor-grab touch-none select-none active:cursor-grabbing"
             >
               <div className="flex items-center justify-between px-5 pt-4">
                 <div className="mx-auto h-1.5 w-10 rounded-full bg-[var(--color-line)]" />
@@ -81,11 +81,11 @@ export function Sheet({
                 </button>
               </div>
             </div>
-            <div className="no-scrollbar max-h-[78dvh] overflow-y-auto overflow-x-hidden px-5 pb-2">
+            <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-5 pb-2">
               {children}
             </div>
             {footer && (
-              <div className="border-t border-[var(--color-line)] px-5 py-3 safe-bottom">
+              <div className="safe-bottom shrink-0 border-t border-[var(--color-line)] px-5 py-3">
                 {footer}
               </div>
             )}

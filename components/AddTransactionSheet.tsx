@@ -3,9 +3,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Sheet } from "./Sheet";
+import { showToast } from "./Toast";
 import { getDB, uid } from "@/lib/db";
 import { isoToday, money } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import {
+  amountReaction,
+  BADGES,
+  earnBadge,
+  pick,
+  TOAST_VARIANTS,
+} from "@/lib/easter";
 import type { Transaction } from "@/lib/types";
 
 export function AddTransactionSheet({
@@ -77,6 +85,8 @@ export function AddTransactionSheet({
     if (!valid) return;
     const db = getDB();
     const now = Date.now();
+    let isNew = false;
+    let firstInCategory = false;
     if (editing && initial) {
       await db.transactions.update(initial.id, {
         amount: amountNum,
@@ -88,6 +98,14 @@ export function AddTransactionSheet({
         note: note || undefined,
       });
     } else {
+      isNew = true;
+      if (categoryId) {
+        const existing = await db.transactions
+          .where("categoryId")
+          .equals(categoryId)
+          .count();
+        firstInCategory = existing === 0;
+      }
       await db.transactions.add({
         id: uid("tx_"),
         amount: amountNum,
@@ -101,6 +119,47 @@ export function AddTransactionSheet({
       });
     }
     onClose();
+
+    if (isNew) {
+      const reaction = amountReaction(amountNum);
+      if (reaction) {
+        showToast(reaction.message, {
+          emoji: reaction.emoji,
+          tone: "celebrate",
+        });
+      } else {
+        showToast(pick(TOAST_VARIANTS));
+      }
+
+      // Milestones
+      const total = await db.transactions.count();
+      if (total === 1 && earnBadge("first-expense")) {
+        celebrateBadge("first-expense");
+      }
+      if (total === 100 && earnBadge("centurion")) {
+        celebrateBadge("centurion");
+      }
+      if (total === 500 && earnBadge("five-hundred")) {
+        celebrateBadge("five-hundred");
+      }
+      if (amountNum >= 1000 && earnBadge("first-grand-tx")) {
+        celebrateBadge("first-grand-tx");
+      }
+      if (firstInCategory && total > 1 && earnBadge("first-time-category")) {
+        celebrateBadge("first-time-category");
+      }
+    }
+  }
+
+  function celebrateBadge(id: keyof typeof BADGES) {
+    const b = BADGES[id];
+    setTimeout(() => {
+      showToast(`${b.title} unlocked`, {
+        emoji: b.emoji,
+        tone: "celebrate",
+        ms: 2800,
+      });
+    }, 600);
   }
 
   async function remove() {

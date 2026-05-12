@@ -2,20 +2,43 @@
 
 import { useLiveQuery } from "dexie-react-hooks";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Sparkles, ChevronRight } from "lucide-react";
 import { getDB } from "@/lib/db";
 import { money } from "@/lib/format";
 import { currentMonthPeriod, monthPeriodFromKey } from "@/lib/budget";
 import { TransactionRow } from "@/components/TransactionRow";
 import { AddTransactionSheet } from "@/components/AddTransactionSheet";
 import { TiffinWordmark } from "@/components/TiffinWordmark";
+import { RecordsSheet } from "@/components/RecordsSheet";
+import { YearInTiffin } from "@/components/YearInTiffin";
+import { showToast } from "@/components/Toast";
 import { buildRecap, getCurrentRecapKey } from "@/lib/recap";
-import { Sparkles, ChevronRight } from "lucide-react";
+import {
+  BADGES,
+  dejaVuIds,
+  earnBadge,
+  EMPTY_HOME,
+  isFirstLaunchOfDay,
+  isFirstOfMonth,
+  noSpendStreak,
+  pickDeterministic,
+  setSecretTheme,
+  timeGreeting,
+} from "@/lib/easter";
+import { useKonamiSwipe } from "@/components/useKonamiSwipe";
 import type { Transaction } from "@/lib/types";
 
 export default function HomePage() {
   const [editing, setEditing] = useState<Transaction | undefined>();
   const [editOpen, setEditOpen] = useState(false);
+  const [recordsOpen, setRecordsOpen] = useState(false);
+  const [showParticle, setShowParticle] = useState(false);
+  const heroTapsRef = useRef<{ count: number; timer: number | null }>({
+    count: 0,
+    timer: null,
+  });
 
   const now = useMemo(() => new Date(), []);
   const month = useMemo(() => currentMonthPeriod(now), [now]);
@@ -24,6 +47,8 @@ export default function HomePage() {
     return d.toISOString().slice(0, 7);
   }, [now]);
   const prevMonth = useMemo(() => monthPeriodFromKey(prevKey), [prevKey]);
+  const greeting = useMemo(() => timeGreeting(now), [now]);
+  const firstOfMonth = useMemo(() => isFirstOfMonth(now), [now]);
 
   const txs = useLiveQuery(
     () =>
@@ -71,6 +96,12 @@ export default function HomePage() {
   const budgetLabel = overall > 0 ? "monthly cap" : "monthly budget";
   const budgetPct = monthlyBudget > 0 ? Math.min(1, total / monthlyBudget) : 0;
 
+  const noSpend = useMemo(
+    () => noSpendStreak(allTxs ?? [], now),
+    [allTxs, now],
+  );
+  const dejaSet = useMemo(() => dejaVuIds(txs ?? []), [txs]);
+
   const byCat = useMemo(() => {
     const map = new Map<string, number>();
     (txs ?? []).forEach((t) => {
@@ -88,23 +119,152 @@ export default function HomePage() {
       .slice(0, 4);
   }, [txs, categories]);
 
+  const emptyCopy = useMemo(
+    () =>
+      pickDeterministic(
+        EMPTY_HOME,
+        new Date().toISOString().slice(0, 10),
+      ),
+    [],
+  );
+
+  // First-launch-of-day particle
+  useEffect(() => {
+    if (isFirstLaunchOfDay()) {
+      setShowParticle(true);
+      const t = setTimeout(() => setShowParticle(false), 3200);
+      return () => clearTimeout(t);
+    }
+  }, []);
+
+  // No-spend streak badges
+  useEffect(() => {
+    if (noSpend >= 3 && earnBadge("no-spend-3"))
+      celebrate("no-spend-3");
+    if (noSpend >= 7 && earnBadge("no-spend-7"))
+      celebrate("no-spend-7");
+    if (noSpend >= 14 && earnBadge("no-spend-14"))
+      celebrate("no-spend-14");
+  }, [noSpend]);
+
+  // Under-month badge — earn on the 1st when prev month was lighter
+  useEffect(() => {
+    if (
+      prevTotal > 0 &&
+      total > 0 &&
+      total < prevTotal &&
+      firstOfMonth &&
+      earnBadge("under-month")
+    )
+      celebrate("under-month");
+  }, [prevTotal, total, firstOfMonth]);
+
+  // Budget Hero — every category budget held for the previous month
+  useEffect(() => {
+    if (!firstOfMonth) return;
+    if (!budgets || budgets.length === 0) return;
+    if (!prevTxs || prevTxs.length === 0) return;
+    const monthlyOnly = budgets.filter((b) => b.period === "monthly");
+    if (monthlyOnly.length === 0) return;
+    const heldAll = monthlyOnly.every((b) => {
+      const spent = prevTxs
+        .filter((t) => t.categoryId === b.categoryId)
+        .reduce((a, t) => a + t.amount, 0);
+      return spent <= b.amount;
+    });
+    if (heldAll && earnBadge("budget-hero")) celebrate("budget-hero");
+  }, [firstOfMonth, budgets, prevTxs]);
+
+  // Konami → Tiffin Gold
+  useKonamiSwipe(() => {
+    const current = document.documentElement.dataset.secretTheme;
+    if (current === "gold") {
+      setSecretTheme(null);
+      showToast("Tiffin Gold disabled", { emoji: "🪙" });
+    } else {
+      setSecretTheme("gold");
+      showToast("Tiffin Gold unlocked", {
+        emoji: "✨",
+        tone: "celebrate",
+        ms: 2400,
+      });
+    }
+  });
+
+  // Apply secret theme on mount
+  useEffect(() => {
+    const t = localStorage.getItem("tiffin.secretTheme");
+    if (t) document.documentElement.dataset.secretTheme = t;
+  }, []);
+
+  function celebrate(id: keyof typeof BADGES) {
+    const b = BADGES[id];
+    showToast(`${b.title} unlocked`, {
+      emoji: b.emoji,
+      tone: "celebrate",
+      ms: 2800,
+    });
+  }
+
+  const handleHeroTap = useCallback(() => {
+    const ref = heroTapsRef.current;
+    ref.count += 1;
+    if (ref.timer) window.clearTimeout(ref.timer);
+    ref.timer = window.setTimeout(() => {
+      ref.count = 0;
+    }, 700);
+    if (ref.count >= 3) {
+      ref.count = 0;
+      if (ref.timer) window.clearTimeout(ref.timer);
+      setRecordsOpen(true);
+    }
+  }, []);
+
   return (
     <div>
-      <header className="safe-top flex items-end justify-between px-5 pt-3 pb-4">
+      <header className="safe-top relative flex items-end justify-between px-5 pt-3 pb-4">
         <div>
           <div className="text-[11px] uppercase tracking-wider text-[var(--color-ink-3)]">
-            {month.label}
+            {greeting} · {month.label}
+            {firstOfMonth && (
+              <span className="ml-1.5 rounded-full bg-[var(--color-accent-soft)] px-1.5 py-0.5 text-[10px] tracking-normal text-[var(--color-accent)]">
+                ✨ fresh start
+              </span>
+            )}
           </div>
           <TiffinWordmark />
         </div>
+        {noSpend >= 3 && (
+          <div className="flex items-center gap-1 rounded-full bg-[var(--color-surface)] px-2.5 py-1 text-[11px] text-[var(--color-ink-2)]">
+            <span>🧘</span> {noSpend} no-spend
+          </div>
+        )}
+        <AnimatePresence>
+          {showParticle && (
+            <motion.span
+              key="particle"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: [0, 1, 1, 0], y: -160 }}
+              transition={{ duration: 3, times: [0, 0.1, 0.7, 1] }}
+              className="pointer-events-none absolute left-12 top-0 text-xl"
+            >
+              ✨
+            </motion.span>
+          )}
+        </AnimatePresence>
       </header>
+
+      <YearInTiffin />
 
       <section className="px-5">
         <div className="rounded-[28px] bg-[var(--color-surface)] p-6">
           <div className="text-[11px] uppercase tracking-wider text-[var(--color-ink-3)]">
             Spent this month
           </div>
-          <div className="font-display mt-1 text-5xl tabular">
+          <div
+            onClick={handleHeroTap}
+            className="font-display mt-1 cursor-pointer text-5xl tabular select-none"
+          >
             {money(total)}
           </div>
           <div className="mt-1 text-sm text-[var(--color-ink-3)]">
@@ -115,14 +275,14 @@ export default function HomePage() {
             ) : delta > 0 ? (
               <>
                 <span className="text-[var(--color-warn)]">
-                  {money(delta)} more
+                  ↑ {money(delta)} more
                 </span>{" "}
                 than last month
               </>
             ) : (
               <>
                 <span className="text-[var(--color-accent)]">
-                  {money(Math.abs(delta))} less
+                  ↓ {money(Math.abs(delta))} less
                 </span>{" "}
                 than last month
               </>
@@ -237,15 +397,16 @@ export default function HomePage() {
         <div className="divide-y divide-[var(--color-line)] rounded-[22px] bg-[var(--color-surface)] px-4">
           {(txs ?? []).length === 0 && (
             <div className="py-10 text-center text-sm text-[var(--color-ink-3)]">
-              No expenses yet this month.
+              {emptyCopy}
               <br />
-              Tap <strong>Add expense</strong> to log your first.
+              Tap <strong>Add expense</strong> to log one.
             </div>
           )}
           {(txs ?? []).slice(0, 6).map((t) => (
             <TransactionRow
               key={t.id}
               tx={t}
+              dejaVu={dejaSet.has(t.id)}
               onClick={() => {
                 setEditing(t);
                 setEditOpen(true);
@@ -259,6 +420,10 @@ export default function HomePage() {
         open={editOpen}
         onClose={() => setEditOpen(false)}
         initial={editing}
+      />
+      <RecordsSheet
+        open={recordsOpen}
+        onClose={() => setRecordsOpen(false)}
       />
     </div>
   );
