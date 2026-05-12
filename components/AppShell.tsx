@@ -26,6 +26,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [addOpen, setAddOpen] = useState(false);
   const immersive = pathname.startsWith("/play");
+  const hideFab = immersive || pathname.startsWith("/settings");
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-xl flex-col">
@@ -33,7 +34,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      {!immersive && (
+      {!hideFab && (
         <button
           type="button"
           onClick={() => setAddOpen(true)}
