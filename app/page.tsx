@@ -16,6 +16,7 @@ import { YearInTiffin } from "@/components/YearInTiffin";
 import { showToast } from "@/components/Toast";
 import { buildRecap, getCurrentRecapKey } from "@/lib/recap";
 import {
+  auditMilestones,
   BADGES,
   dejaVuIds,
   earnBadge,
@@ -136,6 +137,29 @@ export default function HomePage() {
       return () => clearTimeout(t);
     }
   }, []);
+
+  // Retroactive badge audit — runs once when txs are loaded.
+  const auditedRef = useRef(false);
+  useEffect(() => {
+    if (auditedRef.current) return;
+    if (!allTxs) return;
+    auditedRef.current = true;
+    const newly = auditMilestones(allTxs);
+    if (newly.length === 0) return;
+    // Stagger toasts so they don't overlap.
+    newly.forEach((id, i) => {
+      const b = BADGES[id];
+      setTimeout(
+        () =>
+          showToast(`${b.title} unlocked`, {
+            emoji: b.emoji,
+            tone: "celebrate",
+            ms: 2400,
+          }),
+        400 + i * 700,
+      );
+    });
+  }, [allTxs]);
 
   // No-spend streak badges
   useEffect(() => {

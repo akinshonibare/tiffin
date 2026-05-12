@@ -344,6 +344,30 @@ export function computeRecords(txs: Transaction[]): Records {
 
 const LAUNCH_KEY = "tiffin.firstLaunchOfDay";
 
+/**
+ * Audit existing transactions and silently earn any milestone badges the
+ * user already qualifies for. Returns the list of badge ids newly earned
+ * so the caller can show a single "X badge(s) earned" toast if it wants.
+ */
+export function auditMilestones(txs: Transaction[]): BadgeId[] {
+  const newly: BadgeId[] = [];
+  const total = txs.length;
+
+  if (total >= 1 && earnBadge("first-expense")) newly.push("first-expense");
+  if (total >= 100 && earnBadge("centurion")) newly.push("centurion");
+  if (total >= 500 && earnBadge("five-hundred")) newly.push("five-hundred");
+
+  if (txs.some((t) => t.amount >= 1000) && earnBadge("first-grand-tx"))
+    newly.push("first-grand-tx");
+
+  // Trailblazer: used more than one distinct category
+  const cats = new Set(txs.map((t) => t.categoryId).filter(Boolean));
+  if (cats.size >= 2 && earnBadge("first-time-category"))
+    newly.push("first-time-category");
+
+  return newly;
+}
+
 export function isFirstLaunchOfDay(now = new Date()): boolean {
   if (typeof window === "undefined") return false;
   const today = now.toISOString().slice(0, 10);

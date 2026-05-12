@@ -131,22 +131,22 @@ export function AddTransactionSheet({
         showToast(pick(TOAST_VARIANTS));
       }
 
-      // Milestones
+      // Milestones — use >= so retroactive earnings still fire on next save.
       const total = await db.transactions.count();
-      if (total === 1 && earnBadge("first-expense")) {
+      if (total >= 1 && earnBadge("first-expense")) {
         celebrateBadge("first-expense");
-      }
-      if (total === 100 && earnBadge("centurion")) {
-        celebrateBadge("centurion");
-      }
-      if (total === 500 && earnBadge("five-hundred")) {
-        celebrateBadge("five-hundred");
       }
       if (amountNum >= 1000 && earnBadge("first-grand-tx")) {
         celebrateBadge("first-grand-tx");
       }
       if (firstInCategory && total > 1 && earnBadge("first-time-category")) {
         celebrateBadge("first-time-category");
+      }
+      if (total >= 100 && earnBadge("centurion")) {
+        celebrateBadge("centurion");
+      }
+      if (total >= 500 && earnBadge("five-hundred")) {
+        celebrateBadge("five-hundred");
       }
     }
   }
