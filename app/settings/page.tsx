@@ -17,6 +17,14 @@ import { PageHeader } from "@/components/PageHeader";
 import { getDB } from "@/lib/db";
 import { setTheme } from "@/components/ThemeInit";
 import { cn } from "@/lib/utils";
+import type {
+  Account,
+  Budget,
+  Card,
+  Category,
+  Settings,
+  Transaction,
+} from "@/lib/types";
 
 export default function SettingsPage() {
   const settings = useLiveQuery(() => getDB().settings.get("singleton"), []);
@@ -31,6 +39,12 @@ export default function SettingsPage() {
   }, []);
 
   const [confirmReset, setConfirmReset] = useState(false);
+  const [pendingImport, setPendingImport] = useState<{
+    data: ImportShape;
+    fileName: string;
+  } | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function exportData() {
@@ -56,41 +70,80 @@ export default function SettingsPage() {
     URL.revokeObjectURL(url);
   }
 
-  async function importData(file: File) {
-    const text = await file.text();
-    const data = JSON.parse(text);
+  async function stageImport(file: File) {
+    setImportError(null);
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text) as ImportShape;
+      if (
+        !data ||
+        typeof data !== "object" ||
+        (!Array.isArray(data.accounts) &&
+          !Array.isArray(data.transactions) &&
+          !Array.isArray(data.categories))
+      ) {
+        setImportError(
+          "This file doesn't look like a Tiffin backup.",
+        );
+        return;
+      }
+      setPendingImport({ data, fileName: file.name });
+    } catch {
+      setImportError("Couldn't read this file as JSON.");
+    }
+  }
+
+  async function confirmImport() {
+    if (!pendingImport) return;
+    setImporting(true);
+    const { data } = pendingImport;
     const db = getDB();
-    await db.transaction(
-      "rw",
-      [db.accounts, db.cards, db.categories, db.budgets, db.transactions, db.settings],
-      async () => {
-        if (data.accounts) {
-          await db.accounts.clear();
-          await db.accounts.bulkAdd(data.accounts);
-        }
-        if (data.cards) {
-          await db.cards.clear();
-          await db.cards.bulkAdd(data.cards);
-        }
-        if (data.categories) {
-          await db.categories.clear();
-          await db.categories.bulkAdd(data.categories);
-        }
-        if (data.budgets) {
-          await db.budgets.clear();
-          await db.budgets.bulkAdd(data.budgets);
-        }
-        if (data.transactions) {
-          await db.transactions.clear();
-          await db.transactions.bulkAdd(data.transactions);
-        }
-        if (data.settings) {
-          await db.settings.clear();
-          await db.settings.bulkAdd(data.settings);
-        }
-      },
-    );
-    alert("Imported successfully.");
+    try {
+      await db.transaction(
+        "rw",
+        [
+          db.accounts,
+          db.cards,
+          db.categories,
+          db.budgets,
+          db.transactions,
+          db.settings,
+        ],
+        async () => {
+          if (Array.isArray(data.accounts)) {
+            await db.accounts.clear();
+            await db.accounts.bulkAdd(data.accounts);
+          }
+          if (Array.isArray(data.cards)) {
+            await db.cards.clear();
+            await db.cards.bulkAdd(data.cards);
+          }
+          if (Array.isArray(data.categories)) {
+            await db.categories.clear();
+            await db.categories.bulkAdd(data.categories);
+          }
+          if (Array.isArray(data.budgets)) {
+            await db.budgets.clear();
+            await db.budgets.bulkAdd(data.budgets);
+          }
+          if (Array.isArray(data.transactions)) {
+            await db.transactions.clear();
+            await db.transactions.bulkAdd(data.transactions);
+          }
+          if (Array.isArray(data.settings)) {
+            await db.settings.clear();
+            await db.settings.bulkAdd(data.settings);
+          }
+        },
+      );
+      setPendingImport(null);
+    } catch (err) {
+      setImportError(
+        err instanceof Error ? err.message : "Import failed.",
+      );
+    } finally {
+      setImporting(false);
+    }
   }
 
   async function resetAll() {
@@ -203,7 +256,7 @@ export default function SettingsPage() {
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (f) importData(f);
+              if (f) stageImport(f);
               e.target.value = "";
             }}
           />
@@ -256,6 +309,103 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
+
+      {pendingImport && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-5">
+          <div className="w-full max-w-sm rounded-[22px] bg-[var(--color-surface)] p-5">
+            <h3 className="text-lg font-medium">Replace all data?</h3>
+            <p className="mt-1 text-sm text-[var(--color-ink-3)]">
+              About to import{" "}
+              <span className="text-[var(--color-ink-2)]">
+                {pendingImport.fileName}
+              </span>
+              . Every transaction, category, budget, and account on this
+              device will be replaced. Cannot be undone.
+            </p>
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              <ImportStat
+                label="Logged"
+                value={pendingImport.data.transactions?.length ?? 0}
+              />
+              <ImportStat
+                label="Categories"
+                value={pendingImport.data.categories?.length ?? 0}
+              />
+              <ImportStat
+                label="Accounts"
+                value={pendingImport.data.accounts?.length ?? 0}
+              />
+            </div>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingImport(null);
+                  setImportError(null);
+                }}
+                disabled={importing}
+                className="flex-1 rounded-full border border-[var(--color-line)] py-2.5 text-sm disabled:opacity-40"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmImport}
+                disabled={importing}
+                className="flex-1 rounded-full bg-[var(--color-ink)] py-2.5 text-sm font-medium text-[var(--color-bg)] disabled:opacity-40"
+              >
+                {importing ? "Importing…" : "Replace & import"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {importError && !pendingImport && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-5">
+          <div className="w-full max-w-sm rounded-[22px] bg-[var(--color-surface)] p-5">
+            <h3 className="text-lg font-medium">Couldn't import</h3>
+            <p className="mt-1 text-sm text-[var(--color-ink-3)]">
+              {importError}
+            </p>
+            <button
+              type="button"
+              onClick={() => setImportError(null)}
+              className="mt-4 w-full rounded-full bg-[var(--color-ink)] py-2.5 text-sm font-medium text-[var(--color-bg)]"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface ImportShape {
+  version?: number;
+  exportedAt?: string;
+  accounts?: Account[];
+  cards?: Card[];
+  categories?: Category[];
+  budgets?: Budget[];
+  transactions?: Transaction[];
+  settings?: Settings[];
+}
+
+function ImportStat({
+  label,
+  value,
+}: {
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="rounded-[14px] bg-[var(--color-surface-2)] p-2 text-center">
+      <div className="font-display text-lg tabular">{value}</div>
+      <div className="text-[10px] uppercase tracking-wider text-[var(--color-ink-3)]">
+        {label}
+      </div>
     </div>
   );
 }
