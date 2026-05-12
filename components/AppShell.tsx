@@ -39,7 +39,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           onClick={() => setAddOpen(true)}
           aria-label="Add expense"
           style={{
-            bottom: "calc(env(safe-area-inset-bottom) + 7rem)",
+            bottom: "calc(env(safe-area-inset-bottom) + 6rem)",
           }}
           className="fixed left-1/2 z-30 -translate-x-1/2 rounded-full bg-[var(--color-ink)] px-5 py-3.5 text-[var(--color-bg)] shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)] active:scale-95 transition-transform"
         >
