@@ -6,7 +6,12 @@ import { v } from "convex/values";
 import { getAnthropic, MODEL_SONNET, DAILY_AI_USD_CAP } from "./client";
 
 const CONVERSATION_TTL_MS = 30 * 60 * 1000;
-import { buildUserContext, contextPrompt } from "./context";
+import {
+  buildUserContext,
+  contextPrompt,
+  buildNowSnapshot,
+  snapshotPrompt,
+} from "./context";
 import { requireUser } from "../_helpers";
 
 const TOOLS = [
@@ -207,7 +212,10 @@ export const ask = action({
       working = lastUser ? [lastUser] : [...messages];
     }
 
-    const userCtx = await buildUserContext(ctx, userId);
+    const [userCtx, snapshot] = await Promise.all([
+      buildUserContext(ctx, userId),
+      buildNowSnapshot(ctx, userId),
+    ]);
     const client = getAnthropic();
 
     let totalIn = 0;
@@ -225,12 +233,18 @@ export const ask = action({
           },
           {
             type: "text",
+            text: snapshotPrompt(snapshot),
+          },
+          {
+            type: "text",
             text: `You are Tiffin's spending assistant. Scope is strict:
 
 - ONLY answer questions about the user's own spending, transactions, budgets, categories, recurring expenses, accounts, and personal-finance patterns derived from their Tiffin data.
 - If the user asks anything outside that scope (weather, coding, general knowledge, advice not grounded in their data, opinions on stocks, etc.), respond in one short sentence: "I can only help with your Tiffin spending data — try asking about your expenses, budgets, or categories." Do not engage further.
-- Use tools to fetch concrete numbers — never guess or invent figures. If a tool returns empty, say so plainly.
-- Do NOT narrate your tool use. No "Let me pull up…", no "Let me check…". Make the tool call and give the answer.
+- The "Live snapshot" above is your ground truth for the current day, current month, last month, top categories, budgets, and upcoming recurrings. Use it directly to answer questions like "am I on track?", "how much have I spent?", "what's coming up?", "vs last month?" — DO NOT call tools for facts already in the snapshot.
+- Only use tools when the question requires data NOT in the snapshot: a specific transaction lookup, a date range outside the current/previous month, a merchant search, an aggregation by something other than category/recurring.
+- Never guess or invent figures. If neither snapshot nor tools yield an answer, say so plainly.
+- Do NOT narrate your tool use. No "Let me pull up…", no "Let me check…". Answer directly.
 - Reply in 1–3 sentences. Use **markdown** for emphasis (bold figures, bullet lists when comparing 3+ items). Currency as $123.45, or whole dollars when ≥$100.
 - No emoji, no exclamation marks, no encouragement. Direct and observational.`,
           },
