@@ -78,14 +78,44 @@ function Inner({ open, onClose }: { open: boolean; onClose: () => void }) {
   if (!isSignedIn) return null;
 
   return (
-    <Sheet open={open} onClose={onClose} title="Ask Tiffin">
+    <Sheet
+      open={open}
+      onClose={onClose}
+      title="Ask Tiffin"
+      footer={
+        <div className="flex items-end gap-2">
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                send();
+              }
+            }}
+            placeholder="Ask Tiffin…"
+            rows={1}
+            disabled={busy || capped}
+            className="min-h-11 flex-1 resize-none rounded-2xl bg-[var(--color-surface-2)] px-4 py-3 text-sm outline-none disabled:opacity-40"
+          />
+          <button
+            type="button"
+            onClick={send}
+            disabled={busy || capped || !draft.trim()}
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-ink)] text-[var(--color-bg)] disabled:opacity-40"
+          >
+            <Send className="size-4" />
+          </button>
+        </div>
+      }
+    >
       <div className="mb-3 flex items-center gap-1.5 text-xs text-[var(--color-ink-3)]">
         <Sparkles className="size-3.5" />
         Ask anything about your spending. I'll pull numbers from your data.
       </div>
       <div
         ref={scrollRef}
-        className="mb-3 max-h-[55vh] space-y-2 overflow-y-auto"
+        className="space-y-2 overflow-y-auto"
       >
         {messages.length === 0 && (
           <div className="space-y-1 rounded-[18px] bg-[var(--color-surface-2)] p-3 text-sm text-[var(--color-ink-3)]">
@@ -112,30 +142,6 @@ function Inner({ open, onClose }: { open: boolean; onClose: () => void }) {
             Daily AI limit reached. Try again tomorrow.
           </div>
         )}
-      </div>
-      <div className="flex items-end gap-2">
-        <textarea
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              send();
-            }
-          }}
-          placeholder="Ask Tiffin…"
-          rows={1}
-          disabled={busy || capped}
-          className="min-h-11 flex-1 resize-none rounded-2xl bg-[var(--color-surface-2)] px-4 py-3 text-sm outline-none disabled:opacity-40"
-        />
-        <button
-          type="button"
-          onClick={send}
-          disabled={busy || capped || !draft.trim()}
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-ink)] text-[var(--color-bg)] disabled:opacity-40"
-        >
-          <Send className="size-4" />
-        </button>
       </div>
     </Sheet>
   );
