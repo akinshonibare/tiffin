@@ -7,6 +7,7 @@ import { ChevronLeft, Plus, Repeat } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Sheet } from "@/components/Sheet";
 import { getDB, uid } from "@/lib/db";
+import { repo } from "@/lib/repo";
 import { money, isoToday } from "@/lib/format";
 import { periodLabel } from "@/lib/recurrence";
 import { cn } from "@/lib/utils";
@@ -174,9 +175,8 @@ function RecurrenceEditor({
 
   async function save() {
     if (!valid) return;
-    const db = getDB();
     if (editing) {
-      await db.recurrences.update(editing.id, {
+      await repo.recurrences.update(editing.id, {
         name: name.trim(),
         amount: Number(amount),
         period,
@@ -188,7 +188,7 @@ function RecurrenceEditor({
         active,
       });
     } else {
-      await db.recurrences.add({
+      await repo.recurrences.put({
         id: uid("rec_"),
         name: name.trim(),
         amount: Number(amount),
@@ -207,7 +207,7 @@ function RecurrenceEditor({
 
   async function remove() {
     if (!editing) return;
-    await getDB().recurrences.delete(editing.id);
+    await repo.recurrences.delete(editing.id);
     onClose();
   }
 

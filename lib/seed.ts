@@ -36,7 +36,9 @@ export const KNOWN_BANKS = [
   { name: "Other", color: "#64748b" },
 ];
 
-export async function ensureSeed(): Promise<void> {
+export async function ensureSeed(_key?: string): Promise<void> {
+  // Per-user namespace is selected via setActiveDB; getDB() returns the active one.
+  void _key;
   const db = getDB();
   const settings = await db.settings.get("singleton");
   if (settings?.seeded) return;

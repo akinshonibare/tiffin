@@ -10,10 +10,14 @@ export function TransactionRow({
   tx,
   onClick,
   dejaVu,
+  anomalous,
+  anomalyText,
 }: {
   tx: Transaction;
   onClick?: () => void;
   dejaVu?: boolean;
+  anomalous?: boolean;
+  anomalyText?: string;
 }) {
   const category = useLiveQuery(
     () => (tx.categoryId ? getDB().categories.get(tx.categoryId) : undefined),
@@ -58,12 +62,25 @@ export function TransactionRow({
               👀
             </span>
           )}
+          {anomalous && (
+            <span
+              title={anomalyText ?? "Unusual amount"}
+              className="rounded-full bg-[var(--color-warn)]/15 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-[var(--color-warn)]"
+            >
+              ↑ unusual
+            </span>
+          )}
         </div>
         <div className="truncate text-xs text-[var(--color-ink-3)]">
           {shortDate(tx.date)}
           {account ? ` · ${account.name}` : ""}
           {tx.note ? ` · ${tx.note}` : ""}
         </div>
+        {anomalous && anomalyText && (
+          <div className="mt-1 text-[11px] text-[var(--color-warn)]">
+            {anomalyText}
+          </div>
+        )}
         {tx.tags && tx.tags.length > 0 && (
           <div className="mt-1 flex flex-wrap gap-1">
             {tx.tags.map((t) => (

@@ -4,14 +4,18 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
 import { Download, X } from "lucide-react";
 import { getDB } from "@/lib/db";
+import { repo } from "@/lib/repo";
+import { useAuthState } from "@/lib/auth";
 import { showToast } from "./Toast";
 
 const DAYS = { biweekly: 14, monthly: 30 } as const;
 
 export function BackupReminder() {
+  const { isSignedIn } = useAuthState();
   const settings = useLiveQuery(() => getDB().settings.get("singleton"), []);
   const [dismissed, setDismissed] = useState(false);
 
+  if (isSignedIn) return null;
   if (!settings) return null;
   const cadence = settings.backupCadence ?? "off";
   if (cadence === "off" || dismissed) return null;
@@ -45,7 +49,7 @@ export function BackupReminder() {
     a.download = `tiffin-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    await db.settings.update("singleton", {
+    await repo.settings.update({
       lastExportAt: new Date().toISOString(),
     });
     showToast("Backup downloaded", { emoji: "💾", ms: 1600 });

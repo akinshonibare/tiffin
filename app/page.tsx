@@ -15,7 +15,14 @@ import { RecordsSheet } from "@/components/RecordsSheet";
 import { YearInTiffin } from "@/components/YearInTiffin";
 import { RecurringPendingCard } from "@/components/RecurringPendingCard";
 import { BackupReminder } from "@/components/BackupReminder";
+import { AiRecap } from "@/components/AiRecap";
+import { AskTiffinSheet } from "@/components/AskTiffinSheet";
 import { showToast } from "@/components/Toast";
+import { findAnomalies, fallbackText } from "@/lib/anomalies";
+import { MessageSquareText } from "lucide-react";
+import { isClerkConfigured } from "@/lib/convex";
+import { useAuthState } from "@/lib/auth";
+import { AnomalyExplainer } from "@/components/AnomalyExplainer";
 import { buildRecap, getCurrentRecapKey } from "@/lib/recap";
 import {
   auditMilestones,
@@ -38,6 +45,9 @@ export default function HomePage() {
   const [editOpen, setEditOpen] = useState(false);
   const [recordsOpen, setRecordsOpen] = useState(false);
   const [showParticle, setShowParticle] = useState(false);
+  const [askOpen, setAskOpen] = useState(false);
+  const { isSignedIn } = useAuthState();
+  const aiAvailable = isClerkConfigured() && isSignedIn;
   const heroTapsRef = useRef<{ count: number; timer: number | null }>({
     count: 0,
     timer: null,
@@ -104,6 +114,28 @@ export default function HomePage() {
     [allTxs, now],
   );
   const dejaSet = useMemo(() => dejaVuIds(txs ?? []), [txs]);
+
+  const anomalies = useMemo(
+    () => findAnomalies(allTxs ?? [], now),
+    [allTxs, now],
+  );
+  const anomalyMap = useMemo(() => {
+    const m = new Map<string, { text: string }>();
+    for (const a of anomalies) {
+      const tx = (allTxs ?? []).find((t) => t.id === a.txId);
+      m.set(a.txId, { text: tx?.anomalyText ?? fallbackText(a) });
+    }
+    return m;
+  }, [anomalies, allTxs]);
+
+  // AnomalyExplainer below handles the LLM phrasing call when aiAvailable.
+  const topAnomaly = useMemo(() => {
+    if (!txs) return null;
+    const currentMonthIds = new Set(txs.map((t) => t.id));
+    const inMonth = anomalies.filter((a) => currentMonthIds.has(a.txId));
+    if (inMonth.length === 0) return null;
+    return inMonth.reduce((a, b) => (a.amount > b.amount ? a : b));
+  }, [anomalies, txs]);
 
   const byCat = useMemo(() => {
     const map = new Map<string, number>();
@@ -260,11 +292,23 @@ export default function HomePage() {
           </div>
           <TiffinWordmark />
         </div>
-        {noSpend >= 3 && (
-          <div className="flex items-center gap-1 rounded-full bg-[var(--color-surface)] px-2.5 py-1 text-[11px] text-[var(--color-ink-2)]">
-            <span>🧘</span> {noSpend} no-spend
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {noSpend >= 3 && (
+            <div className="flex items-center gap-1 rounded-full bg-[var(--color-surface)] px-2.5 py-1 text-[11px] text-[var(--color-ink-2)]">
+              <span>🧘</span> {noSpend} no-spend
+            </div>
+          )}
+          {aiAvailable && (
+            <button
+              type="button"
+              onClick={() => setAskOpen(true)}
+              className="flex items-center gap-1 rounded-full bg-[var(--color-surface)] px-2.5 py-1 text-[11px] text-[var(--color-ink-2)]"
+              aria-label="Ask Tiffin"
+            >
+              <MessageSquareText className="size-3" /> Ask
+            </button>
+          )}
+        </div>
         <AnimatePresence>
           {showParticle && (
             <motion.span
@@ -345,6 +389,8 @@ export default function HomePage() {
           )}
         </div>
       </section>
+
+      <AiRecap month={month.start.slice(0, 7)} />
 
       {recapAvailable && (
         <section className="mt-4 px-5">
@@ -435,6 +481,8 @@ export default function HomePage() {
               key={t.id}
               tx={t}
               dejaVu={dejaSet.has(t.id)}
+              anomalous={anomalyMap.has(t.id)}
+              anomalyText={anomalyMap.get(t.id)?.text}
               onClick={() => {
                 setEditing(t);
                 setEditOpen(true);
@@ -453,6 +501,26 @@ export default function HomePage() {
         open={recordsOpen}
         onClose={() => setRecordsOpen(false)}
       />
+      <AskTiffinSheet open={askOpen} onClose={() => setAskOpen(false)} />
+      {aiAvailable && (
+        <AnomalyExplainer
+          anomalies={anomalies}
+          transactions={allTxs ?? []}
+          categories={categories ?? []}
+        />
+      )}
+      {topAnomaly && (
+        <section className="mt-4 px-5">
+          <div className="rounded-[22px] border border-[var(--color-warn)]/40 bg-[var(--color-warn)]/10 p-4 text-sm">
+            <div className="text-[11px] uppercase tracking-wider text-[var(--color-warn)]">
+              Unusual this month
+            </div>
+            <div className="mt-1 font-medium">
+              {fallbackText(topAnomaly)}
+            </div>
+          </div>
+        </section>
+      )}
     </div>
   );
 }

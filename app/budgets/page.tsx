@@ -2,8 +2,10 @@
 
 import { useLiveQuery } from "dexie-react-hooks";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Target } from "lucide-react";
+import { Plus, Sparkles, Target } from "lucide-react";
+import { useAuthState } from "@/lib/auth";
 import { getDB, uid } from "@/lib/db";
+import { repo } from "@/lib/repo";
 import { money, isoToday } from "@/lib/format";
 import {
   currentMonthPeriod,
@@ -13,6 +15,8 @@ import {
 import { PageHeader } from "@/components/PageHeader";
 import { BudgetRing } from "@/components/BudgetRing";
 import { Sheet } from "@/components/Sheet";
+import { SuggestBudgetsSheet } from "@/components/SuggestBudgetsSheet";
+import { isClerkConfigured } from "@/lib/convex";
 import { cn } from "@/lib/utils";
 import { EMPTY_BUDGETS, pickDeterministic } from "@/lib/easter";
 import type { Budget, BudgetPeriod, Category } from "@/lib/types";
@@ -21,6 +25,9 @@ export default function BudgetsPage() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<Budget | undefined>();
   const [overallOpen, setOverallOpen] = useState(false);
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const { isSignedIn } = useAuthState();
+  const aiAvailable = isClerkConfigured() && isSignedIn;
 
   const budgets = useLiveQuery(() => getDB().budgets.toArray(), []);
   const categories = useLiveQuery(() => getDB().categories.toArray(), []);
@@ -59,16 +66,27 @@ export default function BudgetsPage() {
         eyebrow="Budgets"
         title="Categories"
         right={
-          <button
-            type="button"
-            onClick={() => {
-              setEditing(undefined);
-              setEditorOpen(true);
-            }}
-            className="flex items-center gap-1 rounded-full bg-[var(--color-ink)] px-3 py-1.5 text-xs text-[var(--color-bg)]"
-          >
-            <Plus className="size-3.5" /> Budget
-          </button>
+          <div className="flex items-center gap-2">
+            {aiAvailable && (
+              <button
+                type="button"
+                onClick={() => setSuggestOpen(true)}
+                className="flex items-center gap-1 rounded-full border border-[var(--color-line)] bg-[var(--color-surface)] px-3 py-1.5 text-xs text-[var(--color-ink-2)]"
+              >
+                <Sparkles className="size-3.5" /> Suggest
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setEditing(undefined);
+                setEditorOpen(true);
+              }}
+              className="flex items-center gap-1 rounded-full bg-[var(--color-ink)] px-3 py-1.5 text-xs text-[var(--color-bg)]"
+            >
+              <Plus className="size-3.5" /> Budget
+            </button>
+          </div>
         }
       />
 
@@ -243,6 +261,10 @@ export default function BudgetsPage() {
         onClose={() => setOverallOpen(false)}
         initial={overall}
       />
+      <SuggestBudgetsSheet
+        open={suggestOpen}
+        onClose={() => setSuggestOpen(false)}
+      />
     </div>
   );
 }
@@ -266,15 +288,14 @@ function OverallEditor({
   const amt = Number(amount);
 
   async function save() {
-    const db = getDB();
-    await db.settings.update("singleton", {
+    await repo.settings.update({
       overallMonthly: amt > 0 ? amt : undefined,
     });
     onClose();
   }
 
   async function clear() {
-    await getDB().settings.update("singleton", { overallMonthly: undefined });
+    await repo.settings.update({ overallMonthly: undefined });
     onClose();
   }
 
@@ -373,9 +394,8 @@ function BudgetEditor({
 
   async function save() {
     if (!valid) return;
-    const db = getDB();
     if (editing) {
-      await db.budgets.update(editing.id, {
+      await repo.budgets.update(editing.id, {
         categoryId: categoryId!,
         amount: amt,
         period,
@@ -383,7 +403,7 @@ function BudgetEditor({
         rollover,
       });
     } else {
-      await db.budgets.add({
+      await repo.budgets.put({
         id: uid("bgt_"),
         categoryId: categoryId!,
         amount: amt,
@@ -398,7 +418,7 @@ function BudgetEditor({
 
   async function remove() {
     if (!editing) return;
-    await getDB().budgets.delete(editing.id);
+    await repo.budgets.delete(editing.id);
     onClose();
   }
 

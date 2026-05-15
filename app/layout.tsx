@@ -5,6 +5,7 @@ import { AppShell } from "@/components/AppShell";
 import { DBInit } from "@/components/DBInit";
 import { ThemeInit } from "@/components/ThemeInit";
 import { SWRegister } from "@/components/SWRegister";
+import { Providers } from "@/components/Providers";
 
 const geist = Geist({
   subsets: ["latin"],
@@ -57,10 +58,12 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
       <body>
-        <ThemeInit />
-        <DBInit />
-        <SWRegister />
-        <AppShell>{children}</AppShell>
+        <Providers>
+          <ThemeInit />
+          <DBInit />
+          <SWRegister />
+          <AppShell>{children}</AppShell>
+        </Providers>
       </body>
     </html>
   );

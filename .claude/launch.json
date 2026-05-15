@@ -5,8 +5,7 @@
       "name": "tiffin",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
-      "port": 3000,
-      "cwd": "/Users/akin/Projects/tiffin"
+      "port": 3000
     }
   ]
 }

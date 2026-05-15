@@ -7,6 +7,7 @@ import { ChevronLeft, Plus } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Sheet } from "@/components/Sheet";
 import { getDB, uid } from "@/lib/db";
+import { repo } from "@/lib/repo";
 import { KNOWN_BANKS } from "@/lib/seed";
 import { cn } from "@/lib/utils";
 import type { Account, AccountType, Card } from "@/lib/types";
@@ -194,9 +195,8 @@ function AccountEditor({
 
   async function save() {
     if (!valid) return;
-    const db = getDB();
     if (editing) {
-      await db.accounts.update(editing.id, {
+      await repo.accounts.update(editing.id, {
         name: name.trim(),
         bank,
         color,
@@ -204,7 +204,7 @@ function AccountEditor({
         last4: last4 || undefined,
       });
     } else {
-      await db.accounts.add({
+      await repo.accounts.put({
         id: uid("acc_"),
         name: name.trim(),
         bank,
@@ -219,7 +219,7 @@ function AccountEditor({
 
   async function remove() {
     if (!editing) return;
-    await getDB().accounts.update(editing.id, { archived: true });
+    await repo.accounts.update(editing.id, { archived: true });
     onClose();
   }
 
@@ -380,15 +380,14 @@ function CardEditor({
 
   async function save() {
     if (!valid) return;
-    const db = getDB();
     if (editing) {
-      await db.cards.update(editing.id, {
+      await repo.cards.update(editing.id, {
         nickname: nickname.trim(),
         last4: last4 || undefined,
         color,
       });
     } else {
-      await db.cards.add({
+      await repo.cards.put({
         id: uid("crd_"),
         accountId: accountId!,
         nickname: nickname.trim(),
@@ -402,7 +401,7 @@ function CardEditor({
 
   async function remove() {
     if (!editing) return;
-    await getDB().cards.update(editing.id, { archived: true });
+    await repo.cards.update(editing.id, { archived: true });
     onClose();
   }
 

@@ -7,6 +7,7 @@ import { ChevronLeft, Plus } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Sheet } from "@/components/Sheet";
 import { getDB, uid } from "@/lib/db";
+import { repo } from "@/lib/repo";
 import { cn } from "@/lib/utils";
 import type { Category } from "@/lib/types";
 
@@ -150,15 +151,14 @@ function CategoryEditor({
 
   async function save() {
     if (!valid) return;
-    const db = getDB();
     if (editing) {
-      await db.categories.update(editing.id, {
+      await repo.categories.update(editing.id, {
         name: name.trim(),
         icon,
         color,
       });
     } else {
-      await db.categories.add({
+      await repo.categories.put({
         id: uid("cat_"),
         name: name.trim(),
         icon,
@@ -171,7 +171,7 @@ function CategoryEditor({
 
   async function remove() {
     if (!editing) return;
-    await getDB().categories.update(editing.id, { archived: true });
+    await repo.categories.update(editing.id, { archived: true });
     onClose();
   }
 

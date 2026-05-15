@@ -1,12 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
+import { Sparkles } from "lucide-react";
 import { Sheet } from "./Sheet";
 import { showToast } from "./Toast";
 import { getDB, uid } from "@/lib/db";
+import { repo } from "@/lib/repo";
 import { isoToday, money } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { isClerkConfigured } from "@/lib/convex";
+import { useAuthState } from "@/lib/auth";
+import { AutoCategorize } from "./AutoCategorize";
 import {
   amountReaction,
   BADGES,
@@ -36,6 +41,14 @@ export function AddTransactionSheet({
   const [tags, setTags] = useState<string[]>([]);
   const [tagDraft, setTagDraft] = useState("");
   const [isRefund, setIsRefund] = useState(false);
+  const [aiSuggestedCategoryId, setAiSuggestedCategoryId] = useState<
+    string | undefined
+  >();
+  const [aiSuggesting, setAiSuggesting] = useState(false);
+  const userPickedCategoryRef = useRef(false);
+
+  const { isSignedIn } = useAuthState();
+  const aiAvailable = isClerkConfigured() && isSignedIn && !editing && open;
 
   const accounts = useLiveQuery(
     () => (open ? getDB().accounts.filter((a) => !a.archived).toArray() : []),
@@ -79,7 +92,11 @@ export function AddTransactionSheet({
       setIsRefund(false);
     }
     setTagDraft("");
+    userPickedCategoryRef.current = !!initial;
+    setAiSuggestedCategoryId(undefined);
   }, [open, initial, accounts, categories]);
+
+  // AutoCategorize child component renders only when aiAvailable.
 
   function commitTagDraft() {
     const raw = tagDraft.trim().replace(/^#/, "").toLowerCase();
@@ -107,7 +124,7 @@ export function AddTransactionSheet({
     let isNew = false;
     let firstInCategory = false;
     if (editing && initial) {
-      await db.transactions.update(initial.id, {
+      await repo.transactions.update(initial.id, {
         amount: amountNum,
         date,
         accountId,
@@ -127,7 +144,7 @@ export function AddTransactionSheet({
           .count();
         firstInCategory = existing === 0;
       }
-      await db.transactions.add({
+      await repo.transactions.put({
         id: uid("tx_"),
         amount: amountNum,
         date,
@@ -187,7 +204,7 @@ export function AddTransactionSheet({
 
   async function remove() {
     if (!initial) return;
-    await getDB().transactions.delete(initial.id);
+    await repo.transactions.delete(initial.id);
     onClose();
   }
 
@@ -235,6 +252,21 @@ export function AddTransactionSheet({
         </div>
       }
     >
+      {aiAvailable && (
+        <AutoCategorize
+          merchant={merchant}
+          note={note}
+          amount={amountNum}
+          onSuggest={(catId) => {
+            if (!userPickedCategoryRef.current) {
+              setCategoryId(catId);
+              setAiSuggestedCategoryId(catId);
+            }
+          }}
+          onLoadingChange={setAiSuggesting}
+        />
+      )}
+
       <div className="mt-4 mb-4 text-center">
         <div className="text-[11px] uppercase tracking-wider text-[var(--color-ink-3)]">
           {isRefund ? "Refund (CAD)" : "Amount (CAD)"}
@@ -278,24 +310,45 @@ export function AddTransactionSheet({
         )}
       </div>
 
-      <Field label="Category">
+      <Field
+        label={
+          <span className="inline-flex items-center gap-1.5">
+            Category
+            {aiSuggesting && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] tracking-wider text-[var(--color-ink-3)]">
+                <Sparkles className="size-2.5 animate-pulse" /> Suggesting…
+              </span>
+            )}
+          </span>
+        }
+      >
         <div className="flex flex-wrap gap-2">
-          {(categories ?? []).map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => setCategoryId(c.id)}
-              className={cn(
-                "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors",
-                categoryId === c.id
-                  ? "border-[var(--color-ink)] bg-[var(--color-ink)] text-[var(--color-bg)]"
-                  : "border-[var(--color-line)] bg-[var(--color-surface)] text-[var(--color-ink-2)]",
-              )}
-            >
-              <span>{c.icon}</span>
-              <span>{c.name}</span>
-            </button>
-          ))}
+          {(categories ?? []).map((c) => {
+            const selected = categoryId === c.id;
+            const aiPicked = aiSuggestedCategoryId === c.id;
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => {
+                  userPickedCategoryRef.current = true;
+                  setCategoryId(c.id);
+                }}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors",
+                  selected
+                    ? "border-[var(--color-ink)] bg-[var(--color-ink)] text-[var(--color-bg)]"
+                    : "border-[var(--color-line)] bg-[var(--color-surface)] text-[var(--color-ink-2)]",
+                )}
+              >
+                <span>{c.icon}</span>
+                <span>{c.name}</span>
+                {selected && aiPicked && (
+                  <Sparkles className="size-3 opacity-80" />
+                )}
+              </button>
+            );
+          })}
         </div>
       </Field>
 
@@ -445,7 +498,7 @@ function Field({
   label,
   children,
 }: {
-  label: string;
+  label: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (

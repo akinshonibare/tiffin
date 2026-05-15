@@ -54,6 +54,7 @@ export interface Transaction {
   tags?: string[];
   isRefund?: boolean;
   recurrenceId?: string;
+  anomalyText?: string;
   createdAt: number;
 }
 

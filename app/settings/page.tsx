@@ -17,7 +17,12 @@ import {
 import { useRef, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { getDB } from "@/lib/db";
+import { repo } from "@/lib/repo";
 import { setTheme } from "@/components/ThemeInit";
+import { AccountSection } from "@/components/AccountSection";
+import { AskTiffinSheet } from "@/components/AskTiffinSheet";
+import { useAuthState } from "@/lib/auth";
+import { Cloud, MessageSquareText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type {
   Account,
@@ -30,6 +35,7 @@ import type {
 } from "@/lib/types";
 
 export default function SettingsPage() {
+  const { isSignedIn } = useAuthState();
   const settings = useLiveQuery(() => getDB().settings.get("singleton"), []);
   const counts = useLiveQuery(async () => {
     const db = getDB();
@@ -42,6 +48,7 @@ export default function SettingsPage() {
   }, []);
 
   const [confirmReset, setConfirmReset] = useState(false);
+  const [askOpen, setAskOpen] = useState(false);
   const [pendingImport, setPendingImport] = useState<{
     data: ImportShape;
     fileName: string;
@@ -72,7 +79,7 @@ export default function SettingsPage() {
     a.download = `tiffin-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    await db.settings.update("singleton", {
+    await repo.settings.update({
       lastExportAt: new Date().toISOString(),
     });
   }
@@ -171,6 +178,11 @@ export default function SettingsPage() {
       <PageHeader eyebrow="Settings" title="Tiffin" />
 
       <section className="px-5">
+        <SectionTitle title="Account" />
+        <AccountSection />
+      </section>
+
+      <section className="mt-6 px-5">
         <div className="grid grid-cols-4 gap-2">
           <Stat label="Logged" value={counts?.tx ?? 0} />
           <Stat label="Categories" value={counts?.cats ?? 0} />
@@ -178,6 +190,26 @@ export default function SettingsPage() {
           <Stat label="Budgets" value={counts?.budgets ?? 0} />
         </div>
       </section>
+
+      {isSignedIn && (
+        <section className="mt-6 px-5">
+          <SectionTitle title="AI" />
+          <button
+            type="button"
+            onClick={() => setAskOpen(true)}
+            className="flex w-full items-center gap-3 rounded-[22px] bg-[var(--color-surface)] px-4 py-3 text-left"
+          >
+            <MessageSquareText className="size-4 text-[var(--color-ink-2)]" />
+            <div className="flex-1">
+              <div className="text-sm font-medium">Ask Tiffin</div>
+              <div className="text-xs text-[var(--color-ink-3)]">
+                Ask anything about your spending
+              </div>
+            </div>
+            <span className="text-[var(--color-ink-3)]">›</span>
+          </button>
+        </section>
+      )}
 
       <section className="mt-6 px-5">
         <SectionTitle title="Manage" />
@@ -203,45 +235,62 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      <section className="mt-6 px-5">
-        <SectionTitle title="Backup reminder" />
-        <div className="grid grid-cols-3 gap-2 rounded-[22px] bg-[var(--color-surface)] p-2">
-          {(
-            [
-              { id: "off", label: "Off" },
-              { id: "biweekly", label: "2 weeks" },
-              { id: "monthly", label: "Monthly" },
-            ] as const
-          ).map((opt) => {
-            const active = (settings?.backupCadence ?? "off") === opt.id;
-            return (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={async () => {
-                  await getDB().settings.update("singleton", {
-                    backupCadence: opt.id as BackupCadence,
-                  });
-                }}
-                className={cn(
-                  "flex items-center justify-center gap-1 rounded-[16px] py-3 text-xs",
-                  active
-                    ? "bg-[var(--color-ink)] text-[var(--color-bg)]"
-                    : "text-[var(--color-ink-2)]",
-                )}
-              >
-                {opt.id !== "off" && <BellRing className="size-3.5" />}
-                {opt.label}
-              </button>
-            );
-          })}
-        </div>
-        <p className="mt-2 px-1 text-[11px] text-[var(--color-ink-3)]">
-          {settings?.backupCadence && settings.backupCadence !== "off"
-            ? `A nudge will appear on Home when it's been ${settings.backupCadence === "biweekly" ? "14" : "30"} days since your last export.`
-            : "When on, Tiffin reminds you to export a JSON snapshot."}
-        </p>
-      </section>
+      {!isSignedIn && (
+        <section className="mt-6 px-5">
+          <SectionTitle title="Backup reminder" />
+          <div className="grid grid-cols-3 gap-2 rounded-[22px] bg-[var(--color-surface)] p-2">
+            {(
+              [
+                { id: "off", label: "Off" },
+                { id: "biweekly", label: "2 weeks" },
+                { id: "monthly", label: "Monthly" },
+              ] as const
+            ).map((opt) => {
+              const active = (settings?.backupCadence ?? "off") === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={async () => {
+                    await repo.settings.update({
+                      backupCadence: opt.id as BackupCadence,
+                    });
+                  }}
+                  className={cn(
+                    "flex items-center justify-center gap-1 rounded-[16px] py-3 text-xs",
+                    active
+                      ? "bg-[var(--color-ink)] text-[var(--color-bg)]"
+                      : "text-[var(--color-ink-2)]",
+                  )}
+                >
+                  {opt.id !== "off" && <BellRing className="size-3.5" />}
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-2 px-1 text-[11px] text-[var(--color-ink-3)]">
+            {settings?.backupCadence && settings.backupCadence !== "off"
+              ? `A nudge will appear on Home when it's been ${settings.backupCadence === "biweekly" ? "14" : "30"} days since your last export.`
+              : "When on, Tiffin reminds you to export a JSON snapshot."}
+          </p>
+        </section>
+      )}
+
+      {isSignedIn && (
+        <section className="mt-6 px-5">
+          <SectionTitle title="Backup" />
+          <div className="flex items-center gap-3 rounded-[22px] bg-[var(--color-surface)] px-4 py-3">
+            <Cloud className="size-4 text-[var(--color-ink-3)]" />
+            <div className="text-sm text-[var(--color-ink-2)]">
+              Synced to your account
+              <div className="text-[11px] text-[var(--color-ink-3)]">
+                Manual backups aren't needed while signed in.
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="mt-6 px-5">
         <SectionTitle title="Appearance" />
@@ -261,7 +310,7 @@ export default function SettingsPage() {
                 type="button"
                 onClick={async () => {
                   setTheme(opt.id);
-                  await getDB().settings.update("singleton", { theme: opt.id });
+                  await repo.settings.update({ theme: opt.id });
                 }}
                 className={cn(
                   "flex flex-col items-center gap-1 rounded-[16px] py-3 text-xs",
@@ -418,6 +467,8 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
+
+      <AskTiffinSheet open={askOpen} onClose={() => setAskOpen(false)} />
 
       {importError && !pendingImport && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-5">

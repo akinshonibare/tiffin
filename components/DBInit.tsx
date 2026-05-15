@@ -2,10 +2,12 @@
 
 import { useEffect } from "react";
 import { ensureSeed } from "@/lib/seed";
+import { getActiveKey } from "@/lib/db";
 
 export function DBInit() {
   useEffect(() => {
-    ensureSeed().catch((err) => console.error("seed failed", err));
+    const key = getActiveKey();
+    ensureSeed(key).catch((err) => console.error("seed failed", err));
   }, []);
   return null;
 }

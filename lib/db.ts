@@ -9,6 +9,8 @@ import type {
   Transaction,
 } from "./types";
 
+const LEGACY_DB_NAME = "tiffin";
+
 export class TiffinDB extends Dexie {
   accounts!: EntityTable<Account, "id">;
   cards!: EntityTable<Card, "id">;
@@ -18,8 +20,8 @@ export class TiffinDB extends Dexie {
   recurrences!: EntityTable<Recurrence, "id">;
   settings!: EntityTable<Settings, "id">;
 
-  constructor() {
-    super("tiffin");
+  constructor(name: string) {
+    super(name);
     this.version(1).stores({
       accounts: "id, name, bank, type, archived, createdAt",
       cards: "id, accountId, archived, createdAt",
@@ -41,14 +43,56 @@ export class TiffinDB extends Dexie {
   }
 }
 
-let _db: TiffinDB | null = null;
+const _cache = new Map<string, TiffinDB>();
+let _activeKey: string = LEGACY_DB_NAME;
+
+function dbNameForKey(key: string): string {
+  if (key === LEGACY_DB_NAME) return LEGACY_DB_NAME;
+  return `tiffin-${key}`;
+}
+
+export function setActiveDB(userId: string | null) {
+  _activeKey = userId ? userId : LEGACY_DB_NAME;
+}
+
+export function getActiveKey(): string {
+  return _activeKey;
+}
 
 export function getDB(): TiffinDB {
   if (typeof window === "undefined") {
     throw new Error("Tiffin DB is browser-only");
   }
-  if (!_db) _db = new TiffinDB();
-  return _db;
+  const name = dbNameForKey(_activeKey);
+  let db = _cache.get(name);
+  if (!db) {
+    db = new TiffinDB(name);
+    _cache.set(name, db);
+  }
+  return db;
+}
+
+export function getLegacyDB(): TiffinDB {
+  if (typeof window === "undefined") {
+    throw new Error("Tiffin DB is browser-only");
+  }
+  let db = _cache.get(LEGACY_DB_NAME);
+  if (!db) {
+    db = new TiffinDB(LEGACY_DB_NAME);
+    _cache.set(LEGACY_DB_NAME, db);
+  }
+  return db;
+}
+
+export async function wipeUserDB(userId: string): Promise<void> {
+  const name = dbNameForKey(userId);
+  const cached = _cache.get(name);
+  if (cached) {
+    await cached.delete();
+    _cache.delete(name);
+  } else {
+    await Dexie.delete(name);
+  }
 }
 
 export function uid(prefix = ""): string {

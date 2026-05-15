@@ -7,6 +7,7 @@ import { Repeat, ChevronRight, Check, SkipForward } from "lucide-react";
 import { Sheet } from "./Sheet";
 import { showToast } from "./Toast";
 import { getDB, uid } from "@/lib/db";
+import { repo } from "@/lib/repo";
 import { money } from "@/lib/format";
 import { advanceDate, isDue, periodLabel } from "@/lib/recurrence";
 import type { Recurrence } from "@/lib/types";
@@ -26,9 +27,8 @@ export function RecurringPendingCard() {
   async function log(rec: Recurrence) {
     if (busyId) return;
     setBusyId(rec.id);
-    const db = getDB();
     const today = new Date().toISOString().slice(0, 10);
-    await db.transactions.add({
+    await repo.transactions.put({
       id: uid("tx_"),
       amount: rec.amount,
       date: today,
@@ -41,7 +41,7 @@ export function RecurringPendingCard() {
       createdAt: Date.now(),
     });
     const next = advanceDate(rec.nextDue, rec.period);
-    await db.recurrences.update(rec.id, { nextDue: next });
+    await repo.recurrences.update(rec.id, { nextDue: next });
     showToast(`${rec.name} logged`, { emoji: "🔁", ms: 1400 });
     setBusyId(null);
   }
@@ -50,7 +50,7 @@ export function RecurringPendingCard() {
     if (busyId) return;
     setBusyId(rec.id);
     const next = advanceDate(rec.nextDue, rec.period);
-    await getDB().recurrences.update(rec.id, { nextDue: next });
+    await repo.recurrences.update(rec.id, { nextDue: next });
     showToast(`${rec.name} skipped`, { ms: 1400 });
     setBusyId(null);
   }
