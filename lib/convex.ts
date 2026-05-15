@@ -5,9 +5,6 @@ import { ConvexReactClient } from "convex/react";
 let _client: ConvexReactClient | null = null;
 
 export function getConvexClient(): ConvexReactClient {
-  if (typeof window === "undefined") {
-    throw new Error("Convex client is browser-only");
-  }
   if (!_client) {
     const url = process.env.NEXT_PUBLIC_CONVEX_URL;
     if (!url) {
