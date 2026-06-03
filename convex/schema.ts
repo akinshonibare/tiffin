@@ -139,6 +139,15 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_user", ["userId"]),
 
+  recapCompletions: defineTable({
+    userId: v.string(),
+    monthKey: v.string(),
+    completedAt: v.number(),
+    won: v.boolean(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_month", ["userId", "monthKey"]),
+
   aiCalls: defineTable({
     userId: v.string(),
     feature: v.string(),

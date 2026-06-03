@@ -23,6 +23,7 @@ import type * as budgets from "../budgets.js";
 import type * as cards from "../cards.js";
 import type * as categories from "../categories.js";
 import type * as migration from "../migration.js";
+import type * as recap from "../recap.js";
 import type * as recurrences from "../recurrences.js";
 import type * as settings from "../settings.js";
 import type * as transactions from "../transactions.js";
@@ -50,6 +51,7 @@ declare const fullApi: ApiFromModules<{
   cards: typeof cards;
   categories: typeof categories;
   migration: typeof migration;
+  recap: typeof recap;
   recurrences: typeof recurrences;
   settings: typeof settings;
   transactions: typeof transactions;

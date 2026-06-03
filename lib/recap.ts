@@ -135,6 +135,24 @@ export function getCurrentRecapKey(now = new Date()): string {
   return previousMonthKey(now);
 }
 
+// Returns up to `count` monthKeys, walking backwards from the previous
+// calendar month. e.g. listMonthKeysBack(june, 3) → ["2026-05","2026-04","2026-03"].
+export function listMonthKeysBack(now: Date, count: number): string[] {
+  const keys: string[] = [];
+  for (let i = 1; i <= count; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    keys.push(
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+    );
+  }
+  return keys;
+}
+
+const MONTH_KEY_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+export function isValidMonthKey(key: string): boolean {
+  return MONTH_KEY_RE.test(key);
+}
+
 export function demoRecap(): RecapPuzzle {
   const now = new Date();
   const d = new Date(now.getFullYear(), now.getMonth() - 1, 1);

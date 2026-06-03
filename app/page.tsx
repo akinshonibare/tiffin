@@ -20,10 +20,12 @@ import { AskTiffinSheet } from "@/components/AskTiffinSheet";
 import { showToast } from "@/components/Toast";
 import { findAnomalies, fallbackText } from "@/lib/anomalies";
 import { MessageSquareText } from "lucide-react";
-import { isClerkConfigured } from "@/lib/convex";
+import { isClerkConfigured, isConvexConfigured } from "@/lib/convex";
 import { useAuthState } from "@/lib/auth";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { AnomalyExplainer } from "@/components/AnomalyExplainer";
-import { buildRecap, getCurrentRecapKey } from "@/lib/recap";
+import { buildRecap, listMonthKeysBack } from "@/lib/recap";
 import {
   auditMilestones,
   BADGES,
@@ -86,17 +88,74 @@ export default function HomePage() {
   const accounts = useLiveQuery(() => getDB().accounts.toArray(), []);
   const settings = useLiveQuery(() => getDB().settings.get("singleton"), []);
 
+  // Convex hooks only valid when the ConvexProvider is mounted. We gate on a
+  // stable env-derived constant so the rules-of-hooks count is constant per
+  // mount (same trick `useAuthState` uses for Clerk).
+  const convexAvailable = isClerkConfigured() && isConvexConfigured();
+  /* eslint-disable react-hooks/rules-of-hooks */
+  const cloudRecapCompletions = convexAvailable
+    ? useQuery(api.recap.listCompletions, isSignedIn ? {} : "skip")
+    : undefined;
+  const markRecapCompleteCloud = convexAvailable
+    ? useMutation(api.recap.markComplete)
+    : null;
+  /* eslint-enable react-hooks/rules-of-hooks */
+
   const recapAvailable = useMemo(() => {
     if (!allTxs || !categories || !accounts) return null;
-    const key = getCurrentRecapKey();
-    const puzzle = buildRecap(key, allTxs, categories, accounts);
-    if (!puzzle) return null;
-    let completed = false;
+    const cloudKeys = new Set(
+      (cloudRecapCompletions ?? []).map((c) => c.monthKey),
+    );
+    // Walk back up to a year, surface the most recent month that is eligible
+    // (buildRecap returns a puzzle) AND not already completed locally/in cloud.
+    for (const key of listMonthKeysBack(new Date(), 12)) {
+      let localDone = false;
+      try {
+        const raw = localStorage.getItem(`tiffin.recap.${key}`);
+        if (raw) {
+          const parsed = JSON.parse(raw) as { done?: boolean };
+          localDone = parsed?.done === true;
+        }
+      } catch {}
+      if (localDone || cloudKeys.has(key)) continue;
+      const puzzle = buildRecap(key, allTxs, categories, accounts);
+      if (puzzle) return { puzzle, monthKey: key };
+    }
+    return null;
+  }, [allTxs, categories, accounts, cloudRecapCompletions]);
+
+  // Push any locally-completed months that haven't reached the cloud yet
+  // (e.g. user finished the puzzle while signed out, then signed back in).
+  useEffect(() => {
+    if (!isSignedIn) return;
+    if (!cloudRecapCompletions) return;
+    if (!markRecapCompleteCloud) return;
     try {
-      completed = !!localStorage.getItem(`tiffin.recap.${key}`);
+      const cloudKeys = new Set(cloudRecapCompletions.map((c) => c.monthKey));
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k || !k.startsWith("tiffin.recap.") || k === "tiffin.recap.demo") continue;
+        const monthKey = k.slice("tiffin.recap.".length);
+        if (cloudKeys.has(monthKey)) continue;
+        const raw = localStorage.getItem(k);
+        if (!raw) continue;
+        let parsed: { done?: boolean; won?: boolean } | null = null;
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
+          continue;
+        }
+        if (!parsed?.done) continue;
+        markRecapCompleteCloud({
+          monthKey,
+          completedAt: Date.now(),
+          won: parsed.won === true,
+        }).catch((err) =>
+          console.error("Failed to sync local recap completion", err),
+        );
+      }
     } catch {}
-    return { puzzle, completed };
-  }, [allTxs, categories, accounts]);
+  }, [isSignedIn, cloudRecapCompletions, markRecapCompleteCloud]);
 
   const total = (txs ?? []).reduce((a, t) => a + signedAmount(t), 0);
   const prevTotal = (prevTxs ?? []).reduce((a, t) => a + signedAmount(t), 0);
@@ -395,7 +454,7 @@ export default function HomePage() {
       {recapAvailable && (
         <section className="mt-4 px-5">
           <Link
-            href="/play/recap"
+            href={`/play/recap?month=${recapAvailable.monthKey}`}
             className="group flex items-center gap-3 overflow-hidden rounded-[22px] bg-[var(--color-ink)] p-4 text-[var(--color-bg)]"
           >
             <div className="flex flex-col gap-0.5">
@@ -409,7 +468,7 @@ export default function HomePage() {
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider opacity-70">
                 <Sparkles className="size-3" />
-                {recapAvailable.completed ? "Replay" : "New puzzle"}
+                New puzzle
               </div>
               <div className="font-display text-lg leading-tight">
                 {recapAvailable.puzzle.monthLabel} Recap

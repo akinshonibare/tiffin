@@ -4,8 +4,12 @@ import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, Shuffle, Share2, RotateCcw, Sparkles } from "lucide-react";
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { isClerkConfigured, isConvexConfigured } from "@/lib/convex";
+import { useAuthState } from "@/lib/auth";
 import { PageHeader } from "@/components/PageHeader";
 import { getDB } from "@/lib/db";
 import { cn } from "@/lib/utils";
@@ -14,6 +18,7 @@ import {
   buildRecap,
   demoRecap,
   getCurrentRecapKey,
+  isValidMonthKey,
   TIER_COLORS,
   type RecapItem,
   type RecapPuzzle,
@@ -83,6 +88,11 @@ export default function RecapPage() {
 function RecapInner() {
   const search = useSearchParams();
   const isDemo = search.get("demo") === "1";
+  const monthParam = search.get("month");
+  const monthKey =
+    monthParam && isValidMonthKey(monthParam)
+      ? monthParam
+      : getCurrentRecapKey();
 
   const txs = useLiveQuery(() => getDB().transactions.toArray(), []);
   const categories = useLiveQuery(() => getDB().categories.toArray(), []);
@@ -91,9 +101,8 @@ function RecapInner() {
   const puzzle = useMemo<RecapPuzzle | null>(() => {
     if (isDemo) return demoRecap();
     if (!txs || !categories || !accounts) return null;
-    const key = getCurrentRecapKey();
-    return buildRecap(key, txs, categories, accounts);
-  }, [isDemo, txs, categories, accounts]);
+    return buildRecap(monthKey, txs, categories, accounts);
+  }, [isDemo, monthKey, txs, categories, accounts]);
 
   if (!txs || !categories || !accounts) {
     return (
@@ -167,6 +176,33 @@ function RecapGame({
       localStorage.setItem(storageKey, JSON.stringify(state));
     } catch {}
   }, [state, storageKey]);
+
+  const { isSignedIn } = useAuthState();
+  // Only safe to call Convex hooks when the ConvexProvider is mounted (same
+  // env-gating pattern as the home page).
+  const convexAvailable = isClerkConfigured() && isConvexConfigured();
+  /* eslint-disable react-hooks/rules-of-hooks */
+  const markComplete = convexAvailable
+    ? useMutation(api.recap.markComplete)
+    : null;
+  /* eslint-enable react-hooks/rules-of-hooks */
+  const cloudSyncedRef = useRef(false);
+  useEffect(() => {
+    if (isDemo) return;
+    if (!state.done) return;
+    if (cloudSyncedRef.current) return;
+    if (!isSignedIn) return;
+    if (!markComplete) return;
+    cloudSyncedRef.current = true;
+    markComplete({
+      monthKey: puzzle.monthKey,
+      completedAt: Date.now(),
+      won: state.won,
+    }).catch((err) => {
+      cloudSyncedRef.current = false;
+      console.error("Failed to mark recap complete in cloud", err);
+    });
+  }, [isDemo, isSignedIn, state.done, state.won, puzzle.monthKey, markComplete]);
 
   const itemMap = useMemo(() => {
     const m = new Map<string, RecapItem>();

@@ -174,6 +174,56 @@ export const replaceAll = mutation({
   },
 });
 
+// Upsert by clientId: insert if missing, patch if present. Used when a user
+// signed back in with local edits and confirmed they want those edits applied
+// to their cloud account.
+export const applyLocalChanges = mutation({
+  args: payload,
+  handler: async (ctx, args) => {
+    const userId = await requireUser(ctx);
+
+    async function upsertByClient(table: any, doc: any) {
+      const existing = await ctx.db
+        .query(table)
+        .withIndex("by_user_client", (q: any) =>
+          q.eq("userId", userId).eq("clientId", doc.clientId),
+        )
+        .unique();
+      if (existing) {
+        const { clientId: _cid, createdAt: _ca, ...patch } = doc;
+        void _cid;
+        void _ca;
+        await ctx.db.patch(existing._id, patch);
+      } else {
+        await ctx.db.insert(table, { userId, ...doc });
+      }
+    }
+
+    for (const a of args.accounts) await upsertByClient("accounts", a);
+    for (const c of args.cards) await upsertByClient("cards", c);
+    for (const c of args.categories) await upsertByClient("categories", c);
+    for (const b of args.budgets) await upsertByClient("budgets", b);
+    for (const t of args.transactions) await upsertByClient("transactions", t);
+    for (const r of args.recurrences) await upsertByClient("recurrences", r);
+
+    if (args.settings) {
+      const existing = await ctx.db
+        .query("userSettings")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .unique();
+      if (existing) await ctx.db.patch(existing._id, args.settings);
+      else await ctx.db.insert("userSettings", { userId, ...args.settings });
+    }
+
+    const userRow = await ctx.db
+      .query("users")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .unique();
+    if (userRow) await ctx.db.patch(userRow._id, { migratedAt: Date.now() });
+    else await ctx.db.insert("users", { userId, migratedAt: Date.now() });
+  },
+});
+
 export const mergeLocal = mutation({
   args: payload,
   handler: async (ctx, args) => {

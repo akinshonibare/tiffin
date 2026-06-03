@@ -44,6 +44,7 @@ export const deleteSelf = mutation({
       "userSettings",
       "userBadges",
       "recapBlurbs",
+      "recapCompletions",
       "askConversations",
       "aiCalls",
       "users",
